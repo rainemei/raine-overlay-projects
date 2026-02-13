@@ -9,10 +9,28 @@
         .phase { font-size: 28px; font-weight: bold; border-left: 5px solid #00ffff; padding-left: 12px; text-shadow: 1px 1px 3px #000; }
         .memo { font-size: 20px; color: #ccc; margin-top: 5px; padding-left: 17px; }
     </style>
+    <style>
+    body { background: transparent; overflow: hidden; margin: 0; }
+    .window {
+        height: 150px; /* OBSで見せる範囲の高さ */
+        overflow: hidden; /* はみ出た部分は隠す */
+        position: relative;
+    }
+    #memoDisplay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        transition: top 0.2s ease-out; /* 動きをヌルッとさせる魔法 */
+    }
+</style>
 </head>
 <body>
     <div id="phaseDisplay" class="phase">Loading...</div>
-    <div id="memoDisplay" class="memo">---</div>
+    <div class="window">
+	    <div id="memoDisplay" class="memo">
+	        </div>
+	</div>
     <script>
         const firebaseConfig = {
           apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
@@ -24,13 +42,19 @@
           appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
         firebase.initializeApp(firebaseConfig);
-        firebase.database().ref('counter').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                document.getElementById('phaseDisplay').innerText = data.phase || "Phase: ---";
-                document.getElementById('memoDisplay').innerText = data.memo || "";
-            }
-        });
-    </script>
+        // データの監視
+            db.ref('counter').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+
+                // メモの内容を更新
+                const display = document.getElementById('memoDisplay');
+                display.innerText = data.memo || "";
+
+                // ★スクロール位置を同期
+                const pos = data.scrollPos || 0;
+                display.style.top = "-" + pos + "px"; // 上に押し上げる
+            });
+            </script>
 </body>
 </html>
