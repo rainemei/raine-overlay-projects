@@ -9,6 +9,12 @@
         input { width: 80%; padding: 15px; font-size: 20px; border-radius: 8px; margin: 20px 0; }
         button { padding: 15px 40px; font-size: 20px; background: #0088cc; color: white; border: none; border-radius: 8px; }
         .back { display: block; margin-top: 50px; color: #aaa; }
+        .color-picker { display: flex; justify-content: center; gap: 10px; margin: 20px 0; }
+        .color-btn { 
+        width: 45px; height: 45px; border-radius: 50%; border: 3px solid #444; cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .color-btn.active { border-color: white; transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -20,22 +26,34 @@
 
     <script>
         const firebaseConfig = {
-         apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
-         authDomain: "raine-overlay-projects.firebaseapp.com",
-         databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
-         projectId: "raine-overlay-projects",
-         storageBucket: "raine-overlay-projects.firebasestorage.app",
-         messagingSenderId: "116002218964",
-         appId: "1:116002218964:web:616f3503eaebacb4442c41"
+            apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
+            authDomain: "raine-overlay-projects.firebaseapp.com",
+            databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "raine-overlay-projects",
+            storageBucket: "raine-overlay-projects.firebasestorage.app",
+            messagingSenderId: "116002218964",
+            appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         db.ref('counter/phase').on('value', (s) => {
             document.getElementById('current').innerText = "現在: " + (s.val() || "---");
         });
+
+        let selectedColor = '#00ffff'; // デフォルト色
+
+        function selectColor(color) {
+            selectedColor = color;
+            // ボタンの見た目を更新する処理をここに入れると◎
+        }
+
         function update() {
             const val = document.getElementById('input').value;
-            db.ref('counter').update({ phase: val });
+            // フェーズ名と一緒に「色」もFirebaseに送る！
+            db.ref('counter').update({ 
+                phase: val,
+                themeColor: selectedColor 
+            });
             document.getElementById('input').value = "";
         }
     </script>

@@ -64,6 +64,16 @@
         db.ref('counter').on('value', (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
+            
+            const themeColor = data.themeColor || '#00ffff'; // 指定がなければ水色
+            
+            // フェーズ名の文字色とバーの色を変える
+            const phaseEl = document.getElementById('phaseDisplay');
+            phaseEl.style.color = themeColor;
+            phaseEl.style.borderLeftColor = themeColor;
+            
+            // おまけ：フェーズ名に光るエフェクト（Glow）を付ける
+            phaseEl.style.textShadow = `0 0 10px ${themeColor}`;
 
             // フェーズ名の更新
             document.getElementById('phaseDisplay').innerText = data.phase || "---";

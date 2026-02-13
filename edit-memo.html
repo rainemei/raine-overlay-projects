@@ -85,21 +85,27 @@
             const listDiv = document.getElementById('memoList');
             listDiv.innerHTML = "";
             const savedMemos = data.savedMemos || {};
+            // メモリストを表示する部分
             Object.keys(savedMemos).forEach(key => {
                 const text = savedMemos[key];
                 const item = document.createElement('div');
                 item.className = 'memo-item';
-                item.innerHTML = `<div class="memo-text" onclick="applyMemo('${text.replace(/\n/g, '\\n')}')">${text.substring(0,15)}...</div>
-                                  <button class="del-btn" onclick="deleteMemo('${key}')">×</button>`;
+                item.innerHTML = `
+                    <div class="memo-text" onclick="applyMemo('${text.replace(/\n/g, '\\n')}')">${text.substring(0,15)}...</div>
+                    <button class="edit-btn" onclick="editMemo('${key}', '${text.replace(/\n/g, '\\n')}')">✎</button>
+                    <button class="del-btn" onclick="deleteMemo('${key}')">×</button>
+                `;
                 listDiv.appendChild(item);
             });
         });
 
+        // メモ選択
         function applyMemo(text) {
             db.ref('counter').update({ memo: text.replace(/\\n/g, '\n'), scrollPos: 0 });
             scrollArea.scrollTop = 0;
         }
 
+        // メモ登録
         function addMemo() {
             const input = document.getElementById('newMemoInput');
             if (!input.value) return;
@@ -107,6 +113,15 @@
             input.value = "";
         }
 
+        // 編集ボタンが押された時の処理
+        function editMemo(key, oldText) {
+            const newText = prompt('メモを編集しますか？', oldText.replace(/\\n/g, '\n'));
+            if (newText !== null) {
+                db.ref('counter/savedMemos/' + key).set(newText);
+            }
+        }
+
+        // メモ削除
         function deleteMemo(key) {
             if(confirm('削除しますか？')) db.ref('counter/savedMemos/' + key).remove();
         }
