@@ -1,112 +1,27 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FF14 Strategy Controller</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FF14 Controller Hub</title>
     <style>
-        body { background-color: #222; color: #f0e6d2; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; }
-        .container { display: flex; flex-direction: column; gap: 20px; align-items: center; }
-        
-        /* カウンター部分 */
-        .counter-group { display: flex; gap: 40px; }
-        .num { font-size: 48px; font-weight: bold; display: block; margin: 10px 0; color: #ffd700; }
-        button { background: #444; color: white; border: 1px solid #888; padding: 10px 20px; font-size: 18px; border-radius: 5px; cursor: pointer; }
-        button:active { background: #666; }
-
-        /* フェーズ・メモ部分 */
-        .info-box { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #555; }
-        .phase-display { font-size: 24px; color: #00ffff; margin-bottom: 10px; }
-        .memo-display { font-size: 18px; font-style: italic; color: #ccc; }
-
-        /* 操作パネル（OBS用URLの時は隠す） */
-        #admin-panel { margin-top: 20px; border-top: 1px solid #444; padding-top: 20px; }
-        input { padding: 8px; width: 70%; border-radius: 4px; border: 1px solid #888; background: #333; color: white; }
-        .hidden { display: none !important; }
+        body { background: #1a1a1a; color: white; font-family: sans-serif; margin: 0; padding: 20px; }
+        h1 { font-size: 20px; color: #888; text-align: center; margin-bottom: 30px; }
+        .menu { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .btn { 
+            background: #333; color: white; padding: 25px; border-radius: 12px; 
+            text-decoration: none; font-size: 20px; font-weight: bold;
+            border-left: 6px solid #ffd700; display: flex; align-items: center; justify-content: space-between;
+        }
+        .btn:active { background: #444; }
+        .icon { font-size: 24px; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <div class="info-box">
-        <div id="phaseDisplay" class="phase-display">Phase: Loading...</div>
-        <div id="memoDisplay" class="memo-display">Memo: ---</div>
+    <h1>STRATEGY CONTROL HUB</h1>
+    <div class="menu">
+        <a href="edit-counter.html" class="btn"><span>🔢 カウンター操作</span><span class="icon">〉</span></a>
+        <a href="edit-phase.html" class="btn"><span>🚩 フェーズ更新</span><span class="icon">〉</span></a>
+        <a href="edit-memo.html" class="btn"><span>📝 メモ管理</span><span class="icon">〉</span></a>
     </div>
-
-    <div class="counter-group">
-        <div>SETS<span id="setNum" class="num">-</span>
-            <div class="controls"><button onclick="change('setNum', -1)">-</button><button onclick="change('setNum', 1)">+</button></div>
-        </div>
-        <div>PULLS<span id="pullNum" class="num">-</span>
-            <div class="controls"><button onclick="change('pullNum', -1)">-</button><button onclick="change('pullNum', 1)">+</button></div>
-        </div>
-    </div>
-
-    <div id="admin-panel">
-        <div>
-            <input type="text" id="phaseInput" placeholder="フェーズ名を入力">
-            <button onclick="updateText('phase')">更新</button>
-        </div>
-        <div style="margin-top: 10px;">
-            <input type="text" id="memoInput" placeholder="ひとことメモを入力">
-            <button onclick="updateText('memo')">更新</button>
-        </div>
-        <div style="margin-top: 20px;">
-            <button onclick="resetAll()" style="background: #622;">ALL RESET</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    // --- ここにFirebase設定を貼り付け ---
-    const firebaseConfig = {
-        apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
-        authDomain: "raine-overlay-projects.firebaseapp.com",
-        databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "raine-overlay-projects",
-        storageBucket: "raine-overlay-projects.firebasestorage.app",
-        messagingSenderId: "116002218964",
-        appId: "1:116002218964:web:616f3503eaebacb4442c41"
-    };
-    // ------------------------------------------
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // URLの最後に ?mode=obs をつけると操作パネルを隠す設定
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('mode') === 'obs') {
-        document.getElementById('admin-panel').classList.add('hidden');
-        document.querySelectorAll('.controls').forEach(el => el.classList.add('hidden'));
-    }
-
-    // データ監視
-    db.ref('counter').on('value', (snapshot) => {
-        const data = snapshot.val() || { setNum: 1, pullNum: 0, phase: "P1", memo: "頑張りましょう！" };
-        document.getElementById('setNum').innerText = data.setNum;
-        document.getElementById('pullNum').innerText = data.pullNum;
-        document.getElementById('phaseDisplay').innerText = "Phase: " + (data.phase || "---");
-        document.getElementById('memoDisplay').innerText = "Memo: " + (data.memo || "---");
-    });
-
-    function change(id, delta) {
-        const val = parseInt(document.getElementById(id).innerText) + delta;
-        if (val >= 0) db.ref('counter').update({ [id]: val });
-    }
-
-    function updateText(type) {
-        const text = document.getElementById(type + 'Input').value;
-        db.ref('counter').update({ [type]: text });
-        document.getElementById(type + 'Input').value = ""; // 入力欄を空にする
-    }
-
-    function resetAll() {
-        if(confirm('すべてリセットしますか？')) {
-            db.ref('counter').update({ setNum: 1, pullNum: 0, phase: "P1", memo: "" });
-        }
-    }
-</script>
 </body>
 </html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { background: #222; color: white; font-family: sans-serif; text-align: center; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 30px; padding: 20px; }
+        .card { background: #333; padding: 20px; border-radius: 15px; border: 1px solid #555; }
+        .num { font-size: 80px; display: block; color: #ffd700; }
+        button { width: 80px; height: 80px; font-size: 30px; margin: 0 10px; border-radius: 50%; border: none; background: #555; color: white; }
+        button:active { background: #777; }
+        .back { display: inline-block; margin-top: 30px; color: #aaa; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="grid">
+        <div class="card">
+            SET<span id="setNum" class="num">-</span>
+            <button onclick="change('setNum', -1)">-</button><button onclick="change('setNum', 1)">+</button>
+        </div>
+        <div class="card">
+            PULL<span id="pullNum" class="num">-</span>
+            <button onclick="change('pullNum', -1)">-</button><button onclick="change('pullNum', 1)">+</button>
+        </div>
+    </div>
+    <a href="index.html" class="back">← 戻る</a>
+
+    <script>
+        const firebaseConfig = {
+         apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
+         authDomain: "raine-overlay-projects.firebaseapp.com",
+         databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
+         projectId: "raine-overlay-projects",
+         storageBucket: "raine-overlay-projects.firebasestorage.app",
+         messagingSenderId: "116002218964",
+         appId: "1:116002218964:web:616f3503eaebacb4442c41"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        db.ref('counter').on('value', (s) => {
+            const d = s.val();
+            document.getElementById('setNum').innerText = d.setNum;
+            document.getElementById('pullNum').innerText = d.pullNum;
+        });
+        function change(id, delta) {
+            const val = parseInt(document.getElementById(id).innerText) + delta;
+            if (val >= 0) db.ref('counter').update({ [id]: val });
+        }
+    </script>
+</body>
+</html>
