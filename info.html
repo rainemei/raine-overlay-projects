@@ -1,7 +1,28 @@
-<style>
-    body { background-color: transparent; color: #00ffff; font-family: sans-serif; }
-    .phase { font-size: 24px; font-weight: bold; border-left: 4px solid #00ffff; padding-left: 10px; }
-    .memo { font-size: 18px; color: #ccc; margin-top: 5px; }
-</style>
-<div class="phase" id="phaseDisplay">P1: Loading...</div>
-<div class="memo" id="memoDisplay">---</div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { background-color: transparent; color: #00ffff; font-family: sans-serif; overflow: hidden; }
+        .phase { font-size: 28px; font-weight: bold; border-left: 5px solid #00ffff; padding-left: 12px; text-shadow: 1px 1px 3px #000; }
+        .memo { font-size: 20px; color: #ccc; margin-top: 5px; padding-left: 17px; }
+    </style>
+</head>
+<body>
+    <div id="phaseDisplay" class="phase">Loading...</div>
+    <div id="memoDisplay" class="memo">---</div>
+    <script>
+        const firebaseConfig = { /* あなたの設定を貼る */ };
+        firebase.initializeApp(firebaseConfig);
+        firebase.database().ref('counter').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById('phaseDisplay').innerText = data.phase || "Phase: ---";
+                document.getElementById('memoDisplay').innerText = data.memo || "";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,5 +1,31 @@
-<style>
-    body { background-color: transparent; color: #f0e6d2; text-align: center; }
-    .num { font-size: 60px; color: #ffd700; text-shadow: 2px 2px 4px #000; }
-    /* ボタンなどはここには書かない（表示専用なので） */
-</style>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { background-color: transparent; color: #f0e6d2; font-family: sans-serif; text-align: center; overflow: hidden; }
+        .num { font-size: 60px; font-weight: bold; color: #ffd700; text-shadow: 2px 2px 4px #000; display: block; }
+        .label { font-size: 20px; color: #f0e6d2; }
+        .container { display: flex; gap: 40px; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div><div class="label">SETS</div><span id="setNum" class="num">-</span></div>
+        <div><div class="label">PULLS</div><span id="pullNum" class="num">-</span></div>
+    </div>
+    <script>
+        const firebaseConfig = { /* あなたの設定を貼る */ };
+        firebase.initializeApp(firebaseConfig);
+        firebase.database().ref('counter').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById('setNum').innerText = data.setNum;
+                document.getElementById('pullNum').innerText = data.pullNum;
+            }
+        });
+    </script>
+</body>
+</html>
