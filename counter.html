@@ -17,7 +17,15 @@
         <div><div class="label">PULLS</div><span id="pullNum" class="num">-</span></div>
     </div>
     <script>
-        const firebaseConfig = { /* あなたの設定を貼る */ };
+        const firebaseConfig = {
+          apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
+          authDomain: "raine-overlay-projects.firebaseapp.com",
+          databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "raine-overlay-projects",
+          storageBucket: "raine-overlay-projects.firebasestorage.app",
+          messagingSenderId: "116002218964",
+          appId: "1:116002218964:web:616f3503eaebacb4442c41"
+        };
         firebase.initializeApp(firebaseConfig);
         firebase.database().ref('counter').on('value', (snapshot) => {
             const data = snapshot.val();
