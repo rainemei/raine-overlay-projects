@@ -6,25 +6,33 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         body { background: #222; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
-        input { width: 80%; padding: 15px; font-size: 20px; border-radius: 8px; margin: 20px 0; }
-        button { padding: 15px 40px; font-size: 20px; background: #0088cc; color: white; border: none; border-radius: 8px; }
-        .back { display: block; margin-top: 50px; color: #aaa; }
-        .color-picker { display: flex; justify-content: center; gap: 10px; margin: 20px 0; }
+        .current { background: #333; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid #ffd700; }
+        input { width: 80%; padding: 15px; font-size: 20px; border-radius: 8px; margin: 10px 0; background: #444; color: white; border: 1px solid #666; }
+        
+        /* 色選択ボタンのスタイル */
+        .color-group { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
         .color-btn { 
-        width: 45px; height: 45px; border-radius: 50%; border: 3px solid #444; cursor: pointer;
-        transition: transform 0.2s;
-    }
-    .color-btn.active { border-color: white; transform: scale(1.1); }
+            width: 50px; height: 50px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;
+            transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .color-btn.active { border-color: white; transform: scale(1.2); }
+
+        .update-btn { width: 85%; padding: 15px; font-size: 20px; background: #0088cc; color: white; border: none; border-radius: 8px; font-weight: bold; }
+        .back { display: block; margin-top: 40px; color: #aaa; text-decoration: none; }
     </style>
 </head>
 <body>
-    <h2>フェーズ更新</h2>
-    <div id="current">現在: Loading...</div>
-    <input type="text" id="input" placeholder="Phase 1...">
-    <button onclick="update()">更新</button>
+    <div class="current">現在: <span id="curP">Loading...</span></div>
+
+    <div class="color-group">
+        <div id="btn1" class="color-btn active" style="background: #00ffff;" onclick="selC('#00ffff', 'btn1')"></div> <div id="btn2" class="color-btn" style="background: #ff4444;" onclick="selC('#ff4444', 'btn2')"></div> <div id="btn3" class="color-btn" style="background: #ffd700;" onclick="selC('#ffd700', 'btn3')"></div> <div id="btn4" class="color-btn" style="background: #a020f0;" onclick="selC('#a020f0', 'btn4')"></div> <div id="btn5" class="color-btn" style="background: #ffffff;" onclick="selC('#ffffff', 'btn5')"></div> </div>
+
+    <input type="text" id="input" placeholder="Phase 1: 〇〇...">
+    <button class="update-btn" onclick="update()">フェーズ＆色を更新</button>
     <a href="index.html" class="back">← 戻る</a>
 
     <script>
+        // ★ここにfirebaseConfigを貼ってください
         const firebaseConfig = {
             apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
             authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -34,26 +42,23 @@
             messagingSenderId: "116002218964",
             appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
+
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-        db.ref('counter/phase').on('value', (s) => {
-            document.getElementById('current').innerText = "現在: " + (s.val() || "---");
-        });
+        let selectedColor = '#00ffff';
 
-        let selectedColor = '#00ffff'; // デフォルト色
+        db.ref('counter/phase').on('value', (s) => { document.getElementById('curP').innerText = s.val() || "---"; });
 
-        function selectColor(color) {
+        function selC(color, id) {
             selectedColor = color;
-            // ボタンの見た目を更新する処理をここに入れると◎
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
         }
 
         function update() {
             const val = document.getElementById('input').value;
-            // フェーズ名と一緒に「色」もFirebaseに送る！
-            db.ref('counter').update({ 
-                phase: val,
-                themeColor: selectedColor 
-            });
+            if(!val) return;
+            db.ref('counter').update({ phase: val, themeColor: selectedColor });
             document.getElementById('input').value = "";
         }
     </script>
