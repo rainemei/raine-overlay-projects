@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { background: #222; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
+        .current-box { background: #333; padding: 15px; border-radius: 10px; border-left: 5px solid #00ffff; margin-bottom: 20px; text-align: left; }
+        input { width: 70%; padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #555; background: #444; color: white; }
+        .add-btn { padding: 12px 20px; background: #28a745; color: white; border: none; border-radius: 5px; margin-left: 5px; }
+        
+        .memo-list { margin-top: 30px; display: flex; flex-direction: column; gap: 10px; }
+        .memo-item { display: flex; align-items: center; background: #333; border-radius: 8px; overflow: hidden; }
+        .memo-text { flex-grow: 1; padding: 15px; text-align: left; cursor: pointer; }
+        .memo-text:active { background: #444; }
+        .del-btn { background: #dc3545; color: white; border: none; padding: 15px; width: 50px; }
+        
+        .back { display: block; margin-top: 40px; color: #aaa; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h2>📝 メモ管理</h2>
+    
+    <div class="current-box">
+        <small>現在表示中:</small>
+        <div id="currentMemo" style="font-size: 18px; font-weight: bold;">---</div>
+    </div>
+
+    <div style="display: flex; justify-content: center;">
+        <input type="text" id="newMemoInput" placeholder="新しいメモを追加...">
+        <button class="add-btn" onclick="addMemo()">追加</button>
+    </div>
+
+    <div id="memoList" class="memo-list">
+        </div>
+
+    <a href="index.html" class="back">← 戻る</a>
+
+    <script>
+        // ★ご自身のFirebase設定を貼り付けてください
+        const firebaseConfig = {
+            apiKey: "...",
+            authDomain: "...",
+            databaseURL: "...",
+            projectId: "...",
+            storageBucket: "...",
+            messagingSenderId: "...",
+            appId: "..."
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 現在のメモと、保存済みリストの両方を監視
+        db.ref('counter').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // 1. 現在表示中のメモを更新
+            document.getElementById('currentMemo').innerText = data.memo || "---";
+
+            // 2. メモリストを表示
+            const listDiv = document.getElementById('memoList');
+            listDiv.innerHTML = "";
+            const savedMemos = data.savedMemos || {};
+            
+            Object.keys(savedMemos).forEach(key => {
+                const text = savedMemos[key];
+                const item = document.createElement('div');
+                item.className = 'memo-item';
+                item.innerHTML = `
+                    <div class="memo-text" onclick="applyMemo('${text}')">${text}</div>
+                    <button class="del-btn" onclick="deleteMemo('${key}')">×</button>
+                `;
+                listDiv.appendChild(item);
+            });
+        });
+
+        // リストに追加する
+        function addMemo() {
+            const input = document.getElementById('newMemoInput');
+            if (!input.value) return;
+            db.ref('counter/savedMemos').push(input.value);
+            input.value = "";
+        }
+
+        // リストから選んでOBS画面に反映する
+        function applyMemo(text) {
+            db.ref('counter').update({ memo: text });
+        }
+
+        // リストから削除する
+        function deleteMemo(key) {
+            if(confirm('このメモを削除しますか？')) {
+                db.ref('counter/savedMemos/' + key).remove();
+            }
+        }
+    </script>
+</body>
+</html>
