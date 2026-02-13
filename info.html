@@ -5,56 +5,77 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        body { background-color: transparent; color: #00ffff; font-family: sans-serif; overflow: hidden; }
-        .phase { font-size: 28px; font-weight: bold; border-left: 5px solid #00ffff; padding-left: 12px; text-shadow: 1px 1px 3px #000; }
-        .memo { font-size: 20px; color: #ccc; margin-top: 5px; padding-left: 17px; }
+        body { background: transparent; overflow: hidden; margin: 0; padding: 10px; }
+        
+        /* フェーズ名のスタイル */
+        .phase-name { 
+            font-size: 28px; font-weight: bold; color: #00ffff; 
+            border-left: 5px solid #00ffff; padding-left: 12px; 
+            text-shadow: 2px 2px 4px #000; margin-bottom: 5px;
+        }
+
+        /* メモ表示用の「窓」 */
+        .window {
+            height: 200px; /* OBSで見せたい高さに合わせて調整してください */
+            overflow: hidden; 
+            position: relative;
+        }
+        
+        /* スルスル動く中身 */
+        #memoDisplay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            font-size: 20px;
+            color: #ccc;
+            line-height: 1.6;
+            text-shadow: 1px 1px 3px #000;
+            padding-left: 17px;
+            transition: top 0.2s ease-out; /* ヌルッと動く魔法 */
+            white-space: pre-wrap;
+        }
     </style>
-    <style>
-    body { background: transparent; overflow: hidden; margin: 0; }
-    .window {
-        height: 150px; /* OBSで見せる範囲の高さ */
-        overflow: hidden; /* はみ出た部分は隠す */
-        position: relative;
-    }
-    #memoDisplay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        transition: top 0.2s ease-out; /* 動きをヌルッとさせる魔法 */
-    }
-</style>
 </head>
 <body>
-    <div id="phaseDisplay" class="phase">Loading...</div>
+
+    <div id="phaseDisplay" class="phase-name">Loading...</div>
+
     <div class="window">
-	    <div id="memoDisplay" class="memo">
-	        </div>
-	</div>
+        <div id="memoDisplay">---</div>
+    </div>
+
     <script>
+        // ★ご自身のFirebase情報を貼り付け
         const firebaseConfig = {
-          apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
-          authDomain: "raine-overlay-projects.firebaseapp.com",
-          databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
-          projectId: "raine-overlay-projects",
-          storageBucket: "raine-overlay-projects.firebasestorage.app",
-          messagingSenderId: "116002218964",
-          appId: "1:116002218964:web:616f3503eaebacb4442c41"
+         apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
+         authDomain: "raine-overlay-projects.firebaseapp.com",
+         databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
+         projectId: "raine-overlay-projects",
+         storageBucket: "raine-overlay-projects.firebasestorage.app",
+         messagingSenderId: "116002218964",
+         appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
-        firebase.initializeApp(firebaseConfig);
-        // データの監視
-            db.ref('counter').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (!data) return;
 
-                // メモの内容を更新
-                const display = document.getElementById('memoDisplay');
-                display.innerText = data.memo || "";
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        
+        const db = firebase.database();
 
-                // ★スクロール位置を同期
-                const pos = data.scrollPos || 0;
-                display.style.top = "-" + pos + "px"; // 上に押し上げる
-            });
-            </script>
+        db.ref('counter').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // フェーズ名の更新
+            document.getElementById('phaseDisplay').innerText = data.phase || "---";
+
+            // メモの内容更新
+            const memoEl = document.getElementById('memoDisplay');
+            memoEl.innerText = data.memo || "";
+
+            // ★スクロール位置の同期
+            const pos = data.scrollPos || 0;
+            memoEl.style.top = "-" + pos + "px"; 
+        });
+    </script>
 </body>
 </html>
