@@ -24,6 +24,8 @@
             position: absolute; top: 0; left: 0; height: 100%;
             background: rgba(255, 215, 0, 0.15);
             width: 0%; z-index: 0; pointer-events: none;
+            /* ★ここを追加：0.1秒（または1秒）かけてヌルッと動かす */
+            transition: width 1.1s linear; 
         }
 
         .next-content { position: relative; z-index: 1; }
@@ -83,7 +85,14 @@
 
                 // 進行度計算 (直前のギミックから次のギミックまでの時間...は難しいので、一律10秒前からバーを伸ばす設定)
                 const timeLeft = next.timeSec - curTime;
-                const progress = Math.max(0, Math.min(100, (10 - timeLeft) * 10)); 
+
+                // 10秒前からバーを開始し、0秒で100%になる計算
+                // linearなtransitionを効かせるため、計算をシンプルにします
+                let progress = 0;
+                if (timeLeft <= 10) {
+                    progress = ((10 - timeLeft) / 10) * 100;
+                }
+                if (timeLeft <= 0) progress = 100;
 
                 area.innerHTML = `
                     <div class="next-card ${isNew ? 'fade-up' : ''}">

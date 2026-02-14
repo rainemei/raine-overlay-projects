@@ -34,12 +34,14 @@
     </div>
 
     <div class="input-card">
-        <div class="tmpl-group">
-            <button class="tmpl-btn" onclick="setTmpl('【全体攻撃】')">全体</button>
-            <button class="tmpl-btn" onclick="setTmpl('【散開】')">散開</button>
-            <button class="tmpl-btn" onclick="setTmpl('【タンク強攻撃】')">強攻撃</button>
-            <button class="tmpl-btn" onclick="setTmpl('【履行技】')">履行</button>
-        </div>
+        <button onclick="toggleTmpl()" style="font-size:12px; margin-bottom:5px;">テンプレートを開く</button>
+            <div id="tmplPopup" style="display:none; flex-wrap:wrap; gap:5px; background:#444; padding:10px; border-radius:5px; margin-bottom:10px;">
+                <button class="tmpl-btn" onclick="setTmpl('【全体攻撃】')">全体</button>
+                <button class="tmpl-btn" onclick="setTmpl('【散開】')">散開</button>
+                <button class="tmpl-btn" onclick="setTmpl('【強攻撃】')">強攻撃</button>
+                <button class="tmpl-btn" onclick="setTmpl('【頭割り】')">頭割り</button>
+                <button class="tmpl-btn" onclick="setTmpl('【ギミック経過】')">ギミック</button>
+            </div>
         <div style="display:flex; gap:5px;">
             <input type="text" id="inTime" placeholder="00:00" style="width:70px;">
             <input type="text" id="inTitle" placeholder="概要">
@@ -191,8 +193,18 @@
             });
             closeEdit();
         }
+
         function closeEdit() { document.getElementById('editOverlay').style.display='none'; }
         function deleteMemo(key) { if(confirm('削除？')) db.ref('counter/savedMemos/'+key).remove(); }
+
+        function toggleTmpl() {
+            const p = document.getElementById('tmplPopup');
+            p.style.display = (p.style.display === 'none') ? 'flex' : 'none';
+        }
+        function setTmpl(txt) {
+            document.getElementById('inTitle').value = txt;
+            toggleTmpl(); // 選んだら閉じる
+        }
     </script>
 </body>
 </html>
