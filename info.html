@@ -7,48 +7,57 @@
     <style>
         body { background: transparent; color: white; font-family: sans-serif; margin: 0; padding: 10px; }
         .container { width: 400px; }
+        
+        /* タイマー表示 */
         #nowTimer { font-family: monospace; font-size: 20px; color: #00ffff; margin-bottom: 10px; text-shadow: 0 0 5px #000; }
 
+        /* Nextカード */
         .next-card {
-            position: relative; background: rgba(0,0,0,0.8);
+            position: relative; background: rgba(0,0,0,0.85);
             border-left: 8px solid #ffd700; border-radius: 4px;
             padding: 15px; margin-bottom: 15px; overflow: hidden;
-            /* widthの変化は progress-bar に任せる */
         }
         
+        /* プログレスバー（通常時は黄色、dangerで赤、active-nowで緑） */
         .progress-bar {
             position: absolute; top: 0; left: 0; height: 100%;
-            background: rgba(255, 215, 0, 0.15);
+            background: rgba(255, 215, 0, 0.2);
             width: 0%; z-index: 0; pointer-events: none;
-            /* ★ linear（一定速度）で1.1秒かけて変化させる */
-            transition: width 1.1s linear; 
+            transition: width 1.1s linear, background 0.3s ease; 
+        }
+
+        /* 3秒前：赤くして点滅 */
+        .progress-bar.danger {
+            background: rgba(255, 69, 0, 0.6);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+        }
+        .flash-red { animation: flash 0.5s infinite alternate; }
+        @keyframes flash { from { opacity: 1; } to { opacity: 0.4; } }
+
+        /* 発動中：緑色で固定 */
+        .progress-bar.active-now {
+            background: rgba(0, 255, 100, 0.4) !important;
+            width: 100% !important;
+            box-shadow: 0 0 20px rgba(0, 255, 100, 0.3);
+        }
+
+        /* 「ACTIVE」ラベル */
+        .status-badge {
+            background: #ff4500; color: white; padding: 2px 8px;
+            border-radius: 4px; font-size: 12px; margin-right: 8px;
+            font-weight: bold; vertical-align: middle;
         }
 
         .next-content { position: relative; z-index: 1; }
         .next-label { color: #ffd700; font-size: 14px; font-weight: bold; }
         .next-title { font-size: 28px; font-weight: bold; margin: 5px 0; }
-        .next-detail { font-size: 16px; color: #ddd; border-top: 1px solid #444; padding-top: 8px; }
+        .next-detail { font-size: 16px; color: #ddd; border-top: 1px solid #444; padding-top: 8px; white-space: pre-wrap; }
 
+        /* 切替アニメーション */
         .fade-up { animation: fadeUp 0.5s ease-out; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         .future-item { background: rgba(0,0,0,0.6); border-left: 4px solid #666; padding: 10px; margin-bottom: 5px; opacity: 0.8; font-size: 16px; display: flex; justify-content: space-between; }
-
-        /* バーが赤くなる時のスタイル */
-        .progress-bar.danger {
-            background: rgba(255, 69, 0, 0.6); /* 鮮やかなオレンジレッド */
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5); /* 外側に光を出す */
-        }
-
-        /* 3秒前の点滅アニメーション */
-        .flash-red {
-            animation: flash 0.5s infinite alternate;
-        }
-        @keyframes flash {
-            from { opacity: 1; }
-            to { opacity: 0.4; }
-        }
-
     </style>
 </head>
 <body>
@@ -68,8 +77,8 @@
     </div>
 
     <script>
-        // ★Firebase設定（ご自身のものを貼ってください）
-        const firebaseConfig = { 
+        // ★ご自身のFirebase情報をここに貼り付け
+        const firebaseConfig = {
             apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
             authDomain: "raine-overlay-projects.firebaseapp.com",
             databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -78,6 +87,7 @@
             messagingSenderId: "116002218964",
             appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
+
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
@@ -87,58 +97,65 @@
             const data = snapshot.val();
             if(!data) return;
 
-            // タイマー更新
+            // 現在時間の表示
             const curTime = data.currentTime || 0;
             const m = Math.floor(curTime/60); const s = curTime%60;
             document.getElementById('nowTimer').innerText = `TIME: ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 
             const saved = data.savedMemos || {};
             const all = Object.values(saved).sort((a,b) => a.timeSec - b.timeSec);
-            const upcoming = all.filter(item => item.timeSec >= curTime);
+            
+            // ★【重要】「発動から5秒以内」ならまだ表示リストに残す
+            const upcoming = all.filter(item => (item.timeSec + 5) >= curTime);
             
             const nextCard = document.getElementById('nextCard');
             const futureList = document.getElementById('futureList');
+            const pBar = document.getElementById('pBar');
 
             if(upcoming.length > 0) {
                 const next = upcoming[0];
                 const nextId = next.timeSec + next.title;
-                
-                // 次のギミックに変わった時だけアニメーション
+                const timeLeft = next.timeSec - curTime;
+
+                // 1. 次のギミックに変わった時のアニメーション
                 if(nextId !== lastGigId) {
                     lastGigId = nextId;
                     nextCard.classList.remove('fade-up');
-                    void nextCard.offsetWidth; // リフロー（アニメ再発動用）
+                    void nextCard.offsetWidth;
                     nextCard.classList.add('fade-up');
                 }
 
-                // 表示更新
                 nextCard.style.display = 'block';
                 document.getElementById('nTitle').innerText = next.title;
                 document.getElementById('nDetail').innerText = next.detail || "";
-                
-                const timeLeft = next.timeSec - curTime;
-                document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
 
-                // ぬるぬるプログレスバー計算
-                const pBar = document.getElementById('pBar');
-                
-                let progress = 0;
-                if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
-                if (timeLeft <= 0) progress = 100;
-                pBar.style.width = progress + "%";
-
-                // ★3秒前判定（赤くして点滅させる）
-                if (timeLeft <= 3 && timeLeft > 0) {
-                    pBar.classList.add('danger');    // 赤くする
-                    pBar.classList.add('flash-red'); // 点滅させる
+                // 2. 状態による表示の出し分け
+                if (timeLeft <= 0) {
+                    // 【発動中 (ACTIVE)】
+                    document.getElementById('nLabel').innerHTML = `<span class="status-badge">ACTIVE</span> ${next.timeStr}`;
+                    pBar.classList.add('active-now');
+                    pBar.classList.remove('danger', 'flash-red');
                 } else {
-                    pBar.classList.remove('danger');
-                    pBar.classList.remove('flash-red');
+                    // 【カウントダウン中】
+                    document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
+                    pBar.classList.remove('active-now');
+
+                    // プログレスバーの進捗（10秒前から開始）
+                    let progress = 0;
+                    if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
+                    pBar.style.width = progress + "%";
+
+                    // 3秒前アラート
+                    if (timeLeft <= 3) {
+                        pBar.classList.add('danger', 'flash-red');
+                    } else {
+                        pBar.classList.remove('danger', 'flash-red');
+                    }
                 }
 
-                // 未来のリスト（ここは今まで通り）
+                // 未来のリスト
                 let futureHtml = "";
-                upcoming.slice(1, 3).forEach(f => {
+                upcoming.slice(1, 4).forEach(f => {
                     futureHtml += `<div class="future-item"><span>${f.title}</span><span>${f.timeStr}</span></div>`;
                 });
                 futureList.innerHTML = futureHtml;
