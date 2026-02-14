@@ -6,62 +6,42 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         body { background: transparent; color: white; font-family: sans-serif; margin: 0; padding: 10px; }
-        .container { width: 450px; } /* 少し幅を広げました */
-
-        /* タイマーとステージ情報を横並びにする */
-        .header-area {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-        
+        .container { width: 450px; }
+        .header-area { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
         #nowTimer { font-family: monospace; font-size: 20px; color: #00ffff; text-shadow: 0 0 5px #000; white-space: nowrap; }
 
-        /* ステージギミック表示枠（ACTIVE中のみ） */
+        /* ステージギミック表示枠 */
         #stageInfo {
-            background: rgba(255, 69, 0, 0.85);
-            color: white;
-            padding: 2px 10px;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: bold;
+            background: rgba(255, 69, 0, 0.85); color: white; padding: 2px 10px;
+            border-radius: 4px; font-size: 16px; font-weight: bold;
             box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
-            animation: slideIn 0.3s ease-out;
-            display: none;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            animation: slideIn 0.3s ease-out; display: none;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-
         @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
 
-        /* メインカード */
         .next-card {
             position: relative; background: rgba(0,0,0,0.85);
             border-left: 8px solid #ffd700; border-radius: 4px;
             padding: 15px; margin-bottom: 15px; overflow: hidden;
         }
-        
         .progress-bar {
             position: absolute; top: 0; left: 0; height: 100%;
-            background: rgba(255, 215, 0, 0.2);
-            width: 0%; z-index: 0; pointer-events: none;
+            background: rgba(255, 215, 0, 0.2); width: 0%; z-index: 0;
             transition: width 1.1s linear, background 0.3s ease; 
         }
-
         .progress-bar.danger { background: rgba(255, 69, 0, 0.6); box-shadow: 0 0 15px rgba(255, 0, 0, 0.5); }
+        .progress-bar.active-now { background: rgba(0, 255, 100, 0.4) !important; width: 100% !important; }
         .flash-red { animation: flash 0.5s infinite alternate; }
         @keyframes flash { from { opacity: 1; } to { opacity: 0.4; } }
 
+        .status-badge { background: #ff4500; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 8px; font-weight: bold; }
         .next-content { position: relative; z-index: 1; }
         .next-label { color: #ffd700; font-size: 14px; font-weight: bold; }
         .next-title { font-size: 28px; font-weight: bold; margin: 5px 0; }
         .next-detail { font-size: 16px; color: #ddd; border-top: 1px solid #444; padding-top: 8px; white-space: pre-wrap; }
-
         .fade-up { animation: fadeUp 0.5s ease-out; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
         .future-item { background: rgba(0,0,0,0.6); border-left: 4px solid #666; padding: 10px; margin-bottom: 5px; opacity: 0.8; font-size: 16px; display: flex; justify-content: space-between; }
     </style>
 </head>
@@ -85,6 +65,7 @@
     </div>
 
     <script>
+        // ★Firebase設定を貼り付けてください
         const firebaseConfig = {
             apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
             authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -94,10 +75,8 @@
             messagingSenderId: "116002218964",
             appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
-
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-
         let lastGigId = "";
 
         db.ref('counter').on('value', (snapshot) => {
@@ -111,25 +90,26 @@
             const saved = data.savedMemos || {};
             const all = Object.values(saved).sort((a,b) => a.timeSec - b.timeSec);
             
-            // 1. 【ステージ情報（タイマー横）】の更新
-            // 発動後、かつDuration（持続時間）内のギミックを探す
+            // 1. ステージ情報の判定（【ステージギミック】で始まるもの）
             const activeStage = all.find(item => {
                 const timeLeft = item.timeSec - curTime;
                 const d = item.duration || 3;
-                return timeLeft <= 0 && (timeLeft + d) > 0;
+                return item.title.startsWith('【ステージギミック】') && timeLeft <= 0 && (timeLeft + d) > 0;
             });
 
             const stageEl = document.getElementById('stageInfo');
             if (activeStage) {
-                stageEl.innerText = `● ${activeStage.title}`;
+                stageEl.innerText = `● ${activeStage.title.replace('【ステージギミック】', '')}`;
                 stageEl.style.display = 'block';
-            } else {
-                stageEl.style.display = 'none';
-            }
+            } else { stageEl.style.display = 'none'; }
 
-            // 2. 【メインカード】
-            // まだ発動していない（timeLeft > 0）ものだけを対象にする
-            const upcoming = all.filter(item => (item.timeSec - curTime) > 0);
+            // 2. 表示対象のフィルタリング
+            const upcoming = all.filter(item => {
+                const timeLeft = item.timeSec - curTime;
+                const d = item.duration || 3;
+                if (item.title.startsWith('【ステージギミック】')) return timeLeft > 0;
+                return (item.timeSec + d) >= curTime;
+            });
             
             const nextCard = document.getElementById('nextCard');
             const futureList = document.getElementById('futureList');
@@ -150,31 +130,29 @@
                 nextCard.style.display = 'block';
                 document.getElementById('nTitle').innerText = next.title;
                 document.getElementById('nDetail').innerText = next.detail || "";
-                document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
 
-                // バーの進捗
-                let progress = 0;
-                if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
-                pBar.style.width = progress + "%";
-
-                // 3秒前アラート
-                if (timeLeft <= 3) {
-                    pBar.classList.add('danger', 'flash-red');
-                } else {
+                if (timeLeft <= 0) {
+                    document.getElementById('nLabel').innerHTML = `<span class="status-badge">ACTIVE</span> ${next.timeStr}`;
+                    pBar.classList.add('active-now');
                     pBar.classList.remove('danger', 'flash-red');
+                } else {
+                    document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
+                    pBar.classList.remove('active-now');
+                    let progress = 0;
+                    if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
+                    pBar.style.width = progress + "%";
+                    if (timeLeft <= 3) pBar.classList.add('danger', 'flash-red');
+                    else pBar.classList.remove('danger', 'flash-red');
                 }
 
-                // 未来のリスト
                 let futureHtml = "";
                 upcoming.slice(1, 4).forEach(f => {
                     futureHtml += `<div class="future-item"><span>${f.title}</span><span>${f.timeStr}</span></div>`;
                 });
                 futureList.innerHTML = futureHtml;
-
             } else {
                 nextCard.style.display = 'none';
-                if (!activeStage) futureList.innerHTML = "<div style='color:#666'>Timeline Finished</div>";
-                else futureList.innerHTML = "";
+                futureList.innerHTML = activeStage ? "" : "<div style='color:#666'>Timeline Finished</div>";
             }
         });
     </script>
