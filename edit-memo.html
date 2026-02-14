@@ -2,69 +2,100 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Timeline Editor v2</title>
+    <title>Timeline Controller Pro</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        body { font-family: sans-serif; background: #222; color: white; padding: 10px; margin: 0; }
-        .input-card { background: #333; padding: 15px; border-radius: 8px; margin-bottom: 10px; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        input, select, textarea { width: 100%; margin-bottom: 10px; background: #444; border: 1px solid #555; color: white; padding: 12px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 5px; }
-        .btn-save { background: #28a745; color: white; }
-        .btn-clear { background: #dc3545; color: white; font-size: 12px; }
-        .tmpl-btn { background: #555; color: white; margin: 2px; width: auto; font-size: 12px; display: inline-block; padding: 8px 12px; }
-        .memo-item { background: #444; padding: 10px; margin-bottom: 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #ffd700; }
-        .memo-info { display: flex; flex-direction: column; }
+        body { font-family: sans-serif; background: #111; color: white; padding: 0; margin: 0; overflow-x: hidden; }
+        
+        /* タブナビゲーション */
+        .tabs { display: flex; background: #222; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #444; }
+        .tab-btn { flex: 1; background: #222; color: #888; border: none; padding: 15px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .tab-btn.active { background: #333; color: #00ffff; border-bottom: 3px solid #00ffff; }
+
+        .tab-content { display: none; padding: 15px; animation: fadeIn 0.2s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* 入力パーツ */
+        .input-card { background: #333; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        input, select, textarea { width: 100%; margin-bottom: 10px; background: #444; border: 1px solid #555; color: white; padding: 12px; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
+        
+        /* ボタン */
+        button { width: 100%; padding: 12px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+        .btn-start { background: #28a745; color: white; }
+        .btn-stop { background: #ffc107; color: black; }
+        .btn-reset { background: #dc3545; color: white; }
+        .btn-save { background: #007bff; color: white; margin-top: 10px; font-size: 18px; }
+        .btn-timestamp { background: #17a2b8; color: white; }
+        .tmpl-btn { background: #555; color: white; width: auto; display: inline-block; margin: 2px; padding: 8px 12px; }
+
+        /* タイマー表示 */
+        .timer-display { text-align: center; font-family: monospace; font-size: 56px; color: #00ffff; margin: 10px 0; text-shadow: 0 0 10px rgba(0,255,255,0.5); }
+
+        /* メモリスト */
+        .memo-item { background: #2a2a2a; padding: 12px; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #ffd700; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .memo-info { flex-grow: 1; cursor: pointer; }
+        .memo-info b { color: #00ffff; font-size: 18px; margin-right: 5px; }
+        .memo-info span { font-size: 16px; }
+        .memo-info small { display: block; color: #888; font-size: 11px; margin-top: 4px; }
+        .btn-edit { width: auto; background: #555; margin: 0 0 0 5px; padding: 8px; }
     </style>
 </head>
 <body>
 
-<div class="input-card">
-    <div style="display:flex; gap:5px; margin-bottom:10px;">
-        <select id="contentSelect" onchange="changeContent()" style="margin-bottom:0; flex-grow:1;"></select>
-        <button onclick="addContentName()" style="width:auto; background:#007bff; color:white; margin:0;">＋追加</button>
-    </div>
-
-    <button onclick="document.getElementById('tmplBox').style.display='block'" style="font-size:12px; background:#444;">テンプレート</button>
-    <div id="tmplBox" style="display:none; background:rgba(0,0,0,0.8); position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000; padding:20px; box-sizing:border-box;">
-        <div style="background:#333; padding:20px; border-radius:10px;">
-            <h3>テンプレートを選択</h3>
-            <button class="tmpl-btn" onclick="setTmpl('【全体攻撃】')">全体</button>
-            <button class="tmpl-btn" onclick="setTmpl('【散開】')">散開</button>
-            <button class="tmpl-btn" onclick="setTmpl('【強攻撃】')">強攻撃</button>
-            <button class="tmpl-btn" onclick="setTmpl('【頭割り】')">頭割り</button>
-            <button class="tmpl-btn" onclick="setTmpl('【ステージギミック】')">ステージ</button>
-            <button onclick="document.getElementById('tmplBox').style.display='none'" style="margin-top:20px; background:#666;">閉じる</button>
-        </div>
-    </div>
-
-    <div style="display:flex; gap:5px;">
-        <input type="text" id="inTime" placeholder="00:00" style="width:100px;">
-        <input type="text" id="inTitle" placeholder="タイトル" style="flex-grow:1;">
-        <input type="number" id="inDuration" value="3" style="width:70px;">
-    </div>
-    <textarea id="inDetail" placeholder="詳細メモ" rows="2"></textarea>
-    <button class="btn-save" onclick="saveMemo()">メモを追加</button>
-    <button class="btn-clear" onclick="clearAllMemos()">オールクリア</button>
-
-    <div style="text-align: center; margin-bottom: 10px;">
-        <span id="remoteTimer" style="font-family: monospace; font-size: 32px; color: #00ffff;">00:00</span>
-    </div>
-    <div style="display: flex; gap: 5px;">
-        <button onclick="controlTimer('start')" style="background: #28a745;">START</button>
-        <button onclick="controlTimer('stop')" style="background: #ffc107; color: black;">STOP</button>
-        <button onclick="controlTimer('reset')" style="background: #dc3545;">RESET</button>
-    </div>
-    <div style="display: flex; gap: 5px; margin-top: 5px;">
-        <button onclick="adjustTime(-5)" style="background: #555;">-5秒</button>
-        <button onclick="adjustTime(5)" style="background: #555;">+5秒</button>
-    </div>
-
-    <button onclick="setCurrentTimestamp()" style="background: #17a2b8; margin-bottom: 10px;">🕒 現在時刻をセット</button>
-
+<div class="tabs">
+    <button id="btn-remote" class="tab-btn active" onclick="showTab('remote')">REMOTE</button>
+    <button id="btn-edit" class="tab-btn" onclick="showTab('edit')">EDIT</button>
+    <button id="btn-manage" class="tab-btn" onclick="showTab('manage')">MANAGE</button>
 </div>
 
-<div id="memoList" style="padding:10px;"></div>
+<div id="tab-remote" class="tab-content active">
+    <div class="timer-display" id="remoteTimer">00:00</div>
+    <div style="display: flex; gap: 8px;">
+        <button class="btn-start" onclick="controlTimer('start')">START</button>
+        <button class="btn-stop" onclick="controlTimer('stop')">STOP</button>
+        <button class="btn-reset" onclick="controlTimer('reset')">RESET</button>
+    </div>
+    <div style="display: flex; gap: 8px; margin-top: 8px;">
+        <button style="background:#444;" onclick="adjustTime(-5)">-5s</button>
+        <button style="background:#444;" onclick="adjustTime(5)">+5s</button>
+    </div>
+    <button class="btn-timestamp" style="margin-top: 15px;" onclick="setCurrentTimestamp()">🕒 今の時間をセットして作成</button>
+</div>
+
+<div id="tab-edit" class="tab-content">
+    <div class="input-card">
+        <div style="margin-bottom: 10px;">
+            <button class="tmpl-btn" onclick="setTmpl('【全体攻撃】')">全体</button>
+            <button class="tmpl-btn" onclick="setTmpl('【強攻撃】')">強攻撃</button>
+            <button class="tmpl-btn" onclick="setTmpl('【散開】')">散開</button>
+            <button class="tmpl-btn" onclick="setTmpl('【頭割り】')">頭割り</button>
+            <button class="tmpl-btn" onclick="setTmpl('【ステージギミック】')">ステージ</button>
+        </div>
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="inTime" placeholder="00:00" style="width:100px;">
+            <input type="text" id="inTitle" placeholder="タイトル" style="flex-grow:1;">
+            <input type="number" id="inDuration" value="3" style="width:70px;" title="表示秒数">
+        </div>
+        <textarea id="inDetail" placeholder="詳細メモ" rows="2"></textarea>
+        <button id="btn-save-main" class="btn-save" onclick="saveMemo()">メモを追加</button>
+        <button id="btn-cancel-edit" style="display:none; background:#666;" onclick="cancelEdit()">キャンセル</button>
+    </div>
+</div>
+
+<div id="tab-manage" class="tab-content">
+    <div class="input-card">
+        <label style="font-size:12px; color:#aaa;">コンテンツ切替</label>
+        <div style="display:flex; gap:5px; margin-top:5px;">
+            <select id="contentSelect" onchange="changeContent()" style="margin:0;"></select>
+            <button onclick="addContentName()" style="width:auto; background:#007bff; margin:0;">追加</button>
+        </div>
+        <button class="btn-reset" style="margin-top:20px; font-size:12px;" onclick="clearAllMemos()">このコンテンツをオールクリア</button>
+    </div>
+</div>
+
+<div id="memoList" style="padding: 10px;"></div>
 
 <script>
     const firebaseConfig = {
@@ -79,9 +110,20 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 1. コンテンツリストの読み込み
-    db.ref('contentsList').on('value', (snapshot) => {
-        const list = snapshot.val() || { "default": "デフォルト" };
+    let editingKey = null;
+    let timerInterval = null;
+
+    // --- タブ切り替え ---
+    function showTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tabId).classList.add('active');
+        document.getElementById('btn-' + tabId).classList.add('active');
+    }
+
+    // --- コンテンツ管理 ---
+    db.ref('contentsList').on('value', (snap) => {
+        const list = snap.val() || { "default": "デフォルト" };
         const select = document.getElementById('contentSelect');
         const lastVal = select.value;
         select.innerHTML = "";
@@ -99,15 +141,51 @@
     }
 
     function changeContent() {
-        const contentId = document.getElementById('contentSelect').value;
-        db.ref('activeContentID').set(contentId); // OBS側に通知
-        loadMemos(contentId);
+        const id = document.getElementById('contentSelect').value;
+        db.ref('activeContentID').set(id);
+        loadMemos(id);
+    }
+
+    // --- タイマー操作 ---
+    db.ref('counter/currentTime').on('value', (snap) => {
+        const t = snap.val() || 0;
+        const m = Math.floor(t/60); const s = t%60;
+        document.getElementById('remoteTimer').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    });
+
+    function controlTimer(action) {
+        if(action === 'start'){
+            if(timerInterval) return;
+            timerInterval = setInterval(() => db.ref('counter/currentTime').transaction(t => (t||0)+1), 1000);
+        } else {
+            clearInterval(timerInterval); timerInterval = null;
+            if(action === 'reset') db.ref('counter/currentTime').set(0);
+        }
+    }
+
+    function adjustTime(sec) {
+        db.ref('counter/currentTime').transaction(t => Math.max(0, (t||0)+sec));
+    }
+
+    function jumpToTime(timeStr) {
+        const p = timeStr.split(':');
+        db.ref('counter/currentTime').set(parseInt(p[0])*60 + parseInt(p[1]));
+    }
+
+    // --- メモ作成・編集 ---
+    function setCurrentTimestamp() {
+        db.ref('counter/currentTime').once('value', (snap) => {
+            const t = snap.val() || 0;
+            const m = Math.floor(t/60); const s = t%60;
+            document.getElementById('inTime').value = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            showTab('edit');
+            document.getElementById('inTitle').focus();
+        });
     }
 
     function setTmpl(val) {
         document.getElementById('inTitle').value = val;
         document.getElementById('inDuration').value = (val === '【ステージギミック】') ? 20 : 3;
-        document.getElementById('tmplBox').style.display = 'none';
     }
 
     function saveMemo() {
@@ -115,21 +193,52 @@
         const timeStr = document.getElementById('inTime').value;
         const title = document.getElementById('inTitle').value;
         if(!timeStr || !title) return;
-        
-        db.ref(`savedMemos/${content}`).push({
+
+        const data = {
             timeStr,
             timeSec: (parseInt(timeStr.split(':')[0])*60) + parseInt(timeStr.split(':')[1]),
             title,
             duration: parseInt(document.getElementById('inDuration').value) || 3,
             detail: document.getElementById('inDetail').value
-        });
+        };
+
+        if(editingKey) {
+            db.ref(`savedMemos/${content}/${editingKey}`).update(data);
+            cancelEdit();
+        } else {
+            db.ref(`savedMemos/${content}`).push(data);
+        }
+
+        document.getElementById('inTime').value = "";
         document.getElementById('inTitle').value = "";
         document.getElementById('inDetail').value = "";
+        showTab('remote');
     }
 
-    function loadMemos(contentId) {
-        db.ref(`savedMemos/${contentId}`).off();
-        db.ref(`savedMemos/${contentId}`).on('value', (snap) => {
+    function editMemo(key, m) {
+        editingKey = key;
+        document.getElementById('inTime').value = m.timeStr;
+        document.getElementById('inTitle').value = m.title;
+        document.getElementById('inDuration').value = m.duration;
+        document.getElementById('inDetail').value = m.detail || "";
+        document.getElementById('btn-save-main').innerText = "💾 更新する";
+        document.getElementById('btn-cancel-edit').style.display = "block";
+        showTab('edit');
+    }
+
+    function cancelEdit() {
+        editingKey = null;
+        document.getElementById('btn-save-main').innerText = "メモを追加";
+        document.getElementById('btn-cancel-edit').style.display = "none";
+        document.getElementById('inTime').value = "";
+        document.getElementById('inTitle').value = "";
+        showTab('remote');
+    }
+
+    // --- リスト表示 ---
+    function loadMemos(id) {
+        db.ref(`savedMemos/${id}`).off();
+        db.ref(`savedMemos/${id}`).on('value', (snap) => {
             const listDiv = document.getElementById('memoList');
             listDiv.innerHTML = "";
             const data = snap.val();
@@ -137,7 +246,16 @@
             Object.entries(data).sort((a,b) => a[1].timeSec - b[1].timeSec).forEach(([key, m]) => {
                 const item = document.createElement('div');
                 item.className = 'memo-item';
-                item.innerHTML = `<div><b>[${m.timeStr}]</b> ${m.title}</div><button onclick="db.ref('savedMemos/${contentId}/${key}').remove()" style="width:auto; margin:0; padding:5px 10px; background:#666;">削除</button>`;
+                item.innerHTML = `
+                    <div class="memo-info" onclick="jumpToTime('${m.timeStr}')">
+                        <b>[${m.timeStr}]</b> <span>${m.title}</span>
+                        <small>タップでジャンプ / 詳細: ${m.detail || 'なし'}</small>
+                    </div>
+                    <div style="display:flex;">
+                        <button class="btn-edit" onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})'>編</button>
+                        <button class="btn-edit" style="background:#444;" onclick="if(confirm('削除しますか？')) db.ref('savedMemos/${id}/${key}').remove()">消</button>
+                    </div>
+                `;
                 listDiv.appendChild(item);
             });
         });
@@ -147,141 +265,6 @@
         const id = document.getElementById('contentSelect').value;
         if(confirm("このコンテンツのメモを全て消去しますか？")) db.ref(`savedMemos/${id}`).remove();
     }
-
-    let timerInterval = null;
-
-    // Firebaseのタイマー（currentTime）を監視して表示
-    db.ref('counter/currentTime').on('value', (snap) => {
-        const t = snap.val() || 0;
-        const m = Math.floor(t / 60);
-        const s = t % 60;
-        document.getElementById('remoteTimer').innerText = 
-            `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    });
-
-    // タイマー操作
-    function controlTimer(action) {
-        if (action === 'start') {
-            if (timerInterval) return;
-            timerInterval = setInterval(() => {
-                db.ref('counter/currentTime').transaction(t => (t || 0) + 1);
-            }, 1000);
-        } else if (action === 'stop') {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        } else if (action === 'reset') {
-            clearInterval(timerInterval);
-            timerInterval = null;
-            db.ref('counter/currentTime').set(0);
-        }
-    }
-
-    // 秒数調整
-    function adjustTime(sec) {
-        db.ref('counter/currentTime').transaction(t => {
-            const newTime = (t || 0) + sec;
-            return newTime < 0 ? 0 : newTime;
-        });
-    }
-
-    // A. 「今！」の時間を入力欄にセットする
-    function setCurrentTimestamp() {
-        db.ref('counter/currentTime').once('value', (snap) => {
-            const t = snap.val() || 0;
-            const m = Math.floor(t / 60);
-            const s = t % 60;
-            document.getElementById('inTime').value = 
-                `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            // タイトル入力にフォーカスを当てる
-            document.getElementById('inTitle').focus();
-        });
-    }
-
-    // B. タイムラインの特定位置にジャンプする
-    function jumpToTime(timeStr) {
-        const parts = timeStr.split(':');
-        const sec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-        db.ref('counter/currentTime').set(sec);
-    }
-
-    // C. メモの修正機能（編集モード）
-    let editingKey = null; // 今どのメモを編集しているか
-
-    function editMemo(key, data) {
-        editingKey = key;
-        document.getElementById('inTime').value = data.timeStr;
-        document.getElementById('inTitle').value = data.title;
-        document.getElementById('inDuration').value = data.duration || 3;
-        document.getElementById('inDetail').value = data.detail || "";
-        
-        // 保存ボタンの見た目を「更新」に変える
-        const saveBtn = document.querySelector('.btn-save');
-        saveBtn.innerText = "💾 メモを更新";
-        saveBtn.style.background = "#007bff";
-        
-        // 入力欄までスクロール
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // D. 保存・更新処理の統合
-    function saveMemo() {
-        const content = document.getElementById('contentSelect').value;
-        const timeStr = document.getElementById('inTime').value;
-        const title = document.getElementById('inTitle').value;
-        if(!timeStr || !title) return;
-
-        const memoData = {
-            timeStr,
-            timeSec: (parseInt(timeStr.split(':')[0])*60) + parseInt(timeStr.split(':')[1]),
-            title,
-            duration: parseInt(document.getElementById('inDuration').value) || 3,
-            detail: document.getElementById('inDetail').value
-        };
-
-        if (editingKey) {
-            // 更新処理
-            db.ref(`savedMemos/${content}/${editingKey}`).update(memoData);
-            editingKey = null;
-            document.querySelector('.btn-save').innerText = "メモを追加";
-            document.querySelector('.btn-save').style.background = "#28a745";
-        } else {
-            // 新規追加
-            db.ref(`savedMemos/${content}`).push(memoData);
-        }
-
-        // 入力欄をクリア
-        document.getElementById('inTime').value = "";
-        document.getElementById('inTitle').value = "";
-        document.getElementById('inDetail').value = "";
-    }
-
-    // E. メモリスト表示の修正（ジャンプボタンと編集ボタンを追加）
-    function loadMemos(contentId) {
-        db.ref(`savedMemos/${contentId}`).off();
-        db.ref(`savedMemos/${contentId}`).on('value', (snap) => {
-            const listDiv = document.getElementById('memoList');
-            listDiv.innerHTML = "";
-            const data = snap.val();
-            if(!data) return;
-
-            Object.entries(data).sort((a,b) => a[1].timeSec - b[1].timeSec).forEach(([key, m]) => {
-                const item = document.createElement('div');
-                item.className = 'memo-item';
-                item.innerHTML = `
-                    <div class="memo-info" onclick="jumpToTime('${m.timeStr}')" style="cursor:pointer; flex-grow:1;">
-                        <b style="color:#00ffff;">[${m.timeStr}]</b> ${m.title}
-                        <small style="color:#aaa; font-size:10px; display:block;">クリックでタイマージャンプ</small>
-                    </div>
-                    <div style="display:flex; gap:5px;">
-                        <button onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})' style="width:auto; background:#bc8f8f; padding:5px;">編集</button>
-                        <button onclick="db.ref('savedMemos/${contentId}/${key}').remove()" style="width:auto; background:#666; padding:5px;">削除</button>
-                    </div>
-                `;
-                listDiv.appendChild(item);
-            });
-        });
-    }
-
 </script>
 </body>
 </html>
