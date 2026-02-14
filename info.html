@@ -117,6 +117,7 @@
 
             if(upcoming.length > 0) {
                 const next = upcoming[0];
+                const nextId = next.timeSec + next.title;
                 const timeLeft = next.timeSec - curTime;
                 const duration = next.duration || 3; // このギミックの持続時間
 
