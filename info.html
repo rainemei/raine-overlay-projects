@@ -17,6 +17,7 @@
             box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
             animation: slideIn 0.3s ease-out; display: none;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            transition: background 0.3s ease;
         }
         @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
 
@@ -43,6 +44,19 @@
         .fade-up { animation: fadeUp 0.5s ease-out; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .future-item { background: rgba(0,0,0,0.6); border-left: 4px solid #666; padding: 10px; margin-bottom: 5px; opacity: 0.8; font-size: 16px; display: flex; justify-content: space-between; }
+
+        /* ★残り5秒の点滅アニメーション */
+        .stage-danger {
+            background: #ff0000 !important; /* より危険な赤に */
+            box-shadow: 0 0 20px #ff0000 !important;
+            animation: stageFlash 0.5s infinite alternate !important;
+        }
+
+        @keyframes stageFlash {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0.7; transform: scale(1.05); } /* 少し膨らむ演出 */
+        }
+
     </style>
 </head>
 <body>
@@ -108,8 +122,17 @@
                 stageEl.innerText = `● ${cleanTitle} (${activeLeft}s)`;
                 
                 stageEl.style.display = 'block';
+
+                // ★残り5秒以下なら点滅クラスを追加、そうでなければ消す
+                if (activeLeft <= 5) {
+                    stageEl.classList.add('stage-danger');
+                } else {
+                    stageEl.classList.remove('stage-danger');
+                }
+
             } else { 
                 stageEl.style.display = 'none'; 
+                stageEl.classList.remove('stage-danger');
             }
             // 2. 表示対象のフィルタリング
             const upcoming = all.filter(item => {
