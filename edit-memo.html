@@ -60,6 +60,8 @@
         <button onclick="adjustTime(5)" style="background: #555;">+5秒</button>
     </div>
 
+    <button onclick="setCurrentTimestamp()" style="background: #17a2b8; margin-bottom: 10px;">🕒 現在時刻をセット</button>
+
 </div>
 
 <div id="memoList" style="padding:10px;"></div>
@@ -179,6 +181,104 @@
         db.ref('counter/currentTime').transaction(t => {
             const newTime = (t || 0) + sec;
             return newTime < 0 ? 0 : newTime;
+        });
+    }
+
+    // A. 「今！」の時間を入力欄にセットする
+    function setCurrentTimestamp() {
+        db.ref('counter/currentTime').once('value', (snap) => {
+            const t = snap.val() || 0;
+            const m = Math.floor(t / 60);
+            const s = t % 60;
+            document.getElementById('inTime').value = 
+                `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            // タイトル入力にフォーカスを当てる
+            document.getElementById('inTitle').focus();
+        });
+    }
+
+    // B. タイムラインの特定位置にジャンプする
+    function jumpToTime(timeStr) {
+        const parts = timeStr.split(':');
+        const sec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        db.ref('counter/currentTime').set(sec);
+    }
+
+    // C. メモの修正機能（編集モード）
+    let editingKey = null; // 今どのメモを編集しているか
+
+    function editMemo(key, data) {
+        editingKey = key;
+        document.getElementById('inTime').value = data.timeStr;
+        document.getElementById('inTitle').value = data.title;
+        document.getElementById('inDuration').value = data.duration || 3;
+        document.getElementById('inDetail').value = data.detail || "";
+        
+        // 保存ボタンの見た目を「更新」に変える
+        const saveBtn = document.querySelector('.btn-save');
+        saveBtn.innerText = "💾 メモを更新";
+        saveBtn.style.background = "#007bff";
+        
+        // 入力欄までスクロール
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // D. 保存・更新処理の統合
+    function saveMemo() {
+        const content = document.getElementById('contentSelect').value;
+        const timeStr = document.getElementById('inTime').value;
+        const title = document.getElementById('inTitle').value;
+        if(!timeStr || !title) return;
+
+        const memoData = {
+            timeStr,
+            timeSec: (parseInt(timeStr.split(':')[0])*60) + parseInt(timeStr.split(':')[1]),
+            title,
+            duration: parseInt(document.getElementById('inDuration').value) || 3,
+            detail: document.getElementById('inDetail').value
+        };
+
+        if (editingKey) {
+            // 更新処理
+            db.ref(`savedMemos/${content}/${editingKey}`).update(memoData);
+            editingKey = null;
+            document.querySelector('.btn-save').innerText = "メモを追加";
+            document.querySelector('.btn-save').style.background = "#28a745";
+        } else {
+            // 新規追加
+            db.ref(`savedMemos/${content}`).push(memoData);
+        }
+
+        // 入力欄をクリア
+        document.getElementById('inTime').value = "";
+        document.getElementById('inTitle').value = "";
+        document.getElementById('inDetail').value = "";
+    }
+
+    // E. メモリスト表示の修正（ジャンプボタンと編集ボタンを追加）
+    function loadMemos(contentId) {
+        db.ref(`savedMemos/${contentId}`).off();
+        db.ref(`savedMemos/${contentId}`).on('value', (snap) => {
+            const listDiv = document.getElementById('memoList');
+            listDiv.innerHTML = "";
+            const data = snap.val();
+            if(!data) return;
+
+            Object.entries(data).sort((a,b) => a[1].timeSec - b[1].timeSec).forEach(([key, m]) => {
+                const item = document.createElement('div');
+                item.className = 'memo-item';
+                item.innerHTML = `
+                    <div class="memo-info" onclick="jumpToTime('${m.timeStr}')" style="cursor:pointer; flex-grow:1;">
+                        <b style="color:#00ffff;">[${m.timeStr}]</b> ${m.title}
+                        <small style="color:#aaa; font-size:10px; display:block;">クリックでタイマージャンプ</small>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})' style="width:auto; background:#bc8f8f; padding:5px;">編集</button>
+                        <button onclick="db.ref('savedMemos/${contentId}/${key}').remove()" style="width:auto; background:#666; padding:5px;">削除</button>
+                    </div>
+                `;
+                listDiv.appendChild(item);
+            });
         });
     }
 
