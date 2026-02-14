@@ -1,65 +1,86 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <style>
-        body { background: transparent; overflow: hidden; margin: 0; padding: 10px; font-family: sans-serif; }
+<style>
+    body { background: transparent; color: white; font-family: sans-serif; }
+    .timeline-container { width: 350px; }
+    
+    /* Next（一番近い未来） */
+    .next-card {
+        background: rgba(0,0,0,0.8);
+        border-left: 8px solid #ffd700;
+        padding: 15px;
+        margin-bottom: 10px;
+        animation: pulse 2s infinite; /* 少し光らせる */
+    }
+    .next-label { color: #ffd700; font-size: 14px; font-weight: bold; }
+    .next-title { font-size: 24px; font-weight: bold; margin: 5px 0; }
+    .next-detail { font-size: 16px; color: #ccc; border-top: 1px solid #444; padding-top: 5px; }
+
+    /* 未来の控え */
+    .future-item {
+        background: rgba(0,0,0,0.5);
+        border-left: 4px solid #666;
+        padding: 8px 12px;
+        margin-bottom: 5px;
+        font-size: 14px;
+        opacity: 0.7;
+    }
+    @keyframes pulse { 0% { box-shadow: 0 0 0px #ffd700; } 50% { box-shadow: 0 0 15px #ffd700; } 100% { box-shadow: 0 0 0px #ffd700; } }
+</style>
+
+<div class="timeline-container" id="displayArea">
+    </div>
+
+<script>
+    // Firebase設定...
+    const firebaseConfig = {
+        apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
+        authDomain: "raine-overlay-projects.firebaseapp.com",
+        databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "raine-overlay-projects",
+        storageBucket: "raine-overlay-projects.firebasestorage.app",
+        messagingSenderId: "116002218964",
+        appId: "1:116002218964:web:616f3503eaebacb4442c41"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    db.ref('counter').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if(!data) return;
+
+        const curTime = data.currentTime || 0;
+        const saved = data.savedMemos || {};
         
-        .phase-name { 
-            font-size: 32px; font-weight: bold; 
-            padding-left: 15px; border-left: 6px solid;
-            margin-bottom: 8px;
-            transition: all 0.5s ease; /* 色替えをヌルッとさせる */
+        // 全ギミックを時間順に並べる
+        const all = Object.values(saved).sort((a,b) => a.timeSec - b.timeSec);
+        
+        // 「まだ来ていない」ギミックだけ抽出
+        const upcoming = all.filter(m => m.timeSec >= curTime);
+        
+        const displayArea = document.getElementById('displayArea');
+        displayArea.innerHTML = "";
+
+        if(upcoming.length > 0) {
+            // 1つ目：Nextとして表示
+            const next = upcoming[0];
+            const nextHtml = `
+                <div class="next-card">
+                    <div class="next-label">Next: ${next.timeStr}</div>
+                    <div class="next-title">${next.title}</div>
+                    <div class="next-detail">${next.detail}</div>
+                </div>
+            `;
+            displayArea.innerHTML += nextHtml;
+
+            // 2つ目以降：控えとして表示 (最大2つ)
+            upcoming.slice(1, 3).forEach(m => {
+                displayArea.innerHTML += `
+                    <div class="future-item">
+                        <span>[${m.timeStr}] ${m.title}</span>
+                    </div>
+                `;
+            });
+        } else {
+            displayArea.innerHTML = "<div>Wait for Start...</div>";
         }
-
-        .window { height: 300px; overflow: hidden; position: relative; }
-        #memoDisplay {
-            position: absolute; top: 0; left: 0; width: 100%;
-            font-size: 22px; color: #eee; line-height: 1.6;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            padding-left: 21px;
-            transition: top 0.2s ease-out;
-            white-space: pre-wrap;
-        }
-    </style>
-</head>
-<body>
-    <div id="phaseDisplay" class="phase-name">Loading...</div>
-    <div class="window"><div id="memoDisplay">---</div></div>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
-            authDomain: "raine-overlay-projects.firebaseapp.com",
-            databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "raine-overlay-projects",
-            storageBucket: "raine-overlay-projects.firebasestorage.app",
-            messagingSenderId: "116002218964",
-            appId: "1:116002218964:web:616f3503eaebacb4442c41"
-        };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        db.ref('counter').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-
-            const themeColor = data.themeColor || '#00ffff';
-
-            // フェーズ表示の更新（色と光るエフェクト）
-            const phaseEl = document.getElementById('phaseDisplay');
-            phaseEl.innerText = data.phase || "---";
-            phaseEl.style.color = themeColor;
-            phaseEl.style.borderLeftColor = themeColor;
-            phaseEl.style.textShadow = `0 0 15px ${themeColor}`;
-
-            // メモとスクロール
-            document.getElementById('memoDisplay').innerText = data.memo || "";
-            const pos = data.scrollPos || 0;
-            document.getElementById('memoDisplay').style.top = "-" + pos + "px"; 
-        });
-    </script>
-</body>
-</html>
+    });
+</script>
