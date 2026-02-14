@@ -121,6 +121,9 @@
             detail
         });
 
+        // ★追加：OBS側に「今このコンテンツを更新したよ」と教える
+        db.ref('activeContentID').set(content);
+
         document.getElementById('inTitle').value = "";
         document.getElementById('inDetail').value = "";
     }
