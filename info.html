@@ -2,16 +2,15 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <title>OBS Timeline Overlay</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <style>
         body { background: transparent; color: white; font-family: sans-serif; margin: 0; padding: 10px; }
         .container { width: 450px; }
         .header-area { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
         #nowTimer { font-family: monospace; font-size: 20px; color: #00ffff; text-shadow: 0 0 5px #000; white-space: nowrap; }
 
-        /* ステージギミック表示枠 */
         #stageInfo {
             background: rgba(255, 69, 0, 0.85); color: white; padding: 2px 10px;
             border-radius: 4px; font-size: 16px; font-weight: bold;
@@ -20,6 +19,13 @@
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
             transition: background 0.3s ease;
         }
+        /* 残り5秒以下の点滅演出 */
+        .stage-danger {
+            background: #ff0000 !important;
+            box-shadow: 0 0 20px #ff0000 !important;
+            animation: stageFlash 0.5s infinite alternate !important;
+        }
+        @keyframes stageFlash { from { opacity: 1; transform: scale(1); } to { opacity: 0.7; transform: scale(1.05); } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
 
         .next-card {
@@ -45,18 +51,6 @@
         .fade-up { animation: fadeUp 0.5s ease-out; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .future-item { background: rgba(0,0,0,0.6); border-left: 4px solid #666; padding: 10px; margin-bottom: 5px; opacity: 0.8; font-size: 16px; display: flex; justify-content: space-between; }
-
-        /* ★残り5秒の点滅アニメーション */
-        .stage-danger {
-            background: #ff0000 !important; /* より危険な赤に */
-            box-shadow: 0 0 20px #ff0000 !important;
-            animation: stageFlash 0.5s infinite alternate !important;
-        }
-
-        @keyframes stageFlash {
-            from { opacity: 1; transform: scale(1); }
-            to { opacity: 0.7; transform: scale(1.05); } /* 少し膨らむ演出 */
-        }
     </style>
 </head>
 <body>
@@ -65,10 +59,21 @@
             <div id="nowTimer">TIME: 00:00</div>
             <div id="stageInfo"></div>
         </div>
+        <div id="displayArea">
+            <div id="nextCard" class="next-card" style="display:none;">
+                <div id="pBar" class="progress-bar"></div>
+                <div class="next-content">
+                    <div id="nLabel" class="next-label"></div>
+                    <div id="nTitle" class="next-title"></div>
+                    <div id="nDetail" class="next-detail"></div>
+                </div>
+            </div>
+            <div id="futureList"></div>
         </div>
+    </div>
 
     <script>
-        // ★Firebase設定（ご自身のものを貼ってください）
+        // ★Firebase設定（ご自身のキーをここに貼ってください）
         const firebaseConfig = {
             apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
             authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -82,39 +87,98 @@
         const db = firebase.database();
 
         let lastGigId = "";
-        let currentContentId = "default"; // 現在表示中のコンテンツID
+        let currentContentId = "default";
+        let globalCurTime = 0;
 
-        // 1. 【新機能】今どのコンテンツを表示すべきか、常に監視する
-        db.ref('activeContentID').on('value', (idSnapshot) => {
-            currentContentId = idSnapshot.val() || "default";
-            
-            // コンテンツが切り替わったら、その場所のメモを監視し直す
-            db.ref(`savedMemos/${currentContentId}`).off(); // 前の監視を解除
-            db.ref(`savedMemos/${currentContentId}`).on('value', (memoSnapshot) => {
-                updateDisplay(memoSnapshot.val());
+        // 1. コンテンツ切り替えの監視
+        db.ref('activeContentID').on('value', (snap) => {
+            currentContentId = snap.val() || "default";
+            db.ref(`savedMemos/${currentContentId}`).off();
+            db.ref(`savedMemos/${currentContentId}`).on('value', (memoSnap) => {
+                updateDisplay(memoSnap.val());
             });
         });
 
-        // 2. タイマー（currentTime）の監視
-        let globalCurTime = 0;
+        // 2. タイマーの監視
         db.ref('counter/currentTime').on('value', (snap) => {
             globalCurTime = snap.val() || 0;
             const m = Math.floor(globalCurTime/60); const s = globalCurTime%60;
             document.getElementById('nowTimer').innerText = `TIME: ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-            // タイマーが動くたびに表示を更新（点滅やカウントダウンのため）
-            db.ref(`savedMemos/${currentContentId}`).once('value', (snap) => updateDisplay(snap.val()));
+            db.ref(`savedMemos/${currentContentId}`).once('value', (memoSnap) => updateDisplay(memoSnap.val()));
         });
 
         function updateDisplay(savedData) {
-            if(!savedData) {
-                document.getElementById('displayArea').innerHTML = "No Data";
-                return;
+            const displayArea = document.getElementById('displayArea');
+            if(!savedData) { 
+                document.getElementById('nextCard').style.display = 'none';
+                document.getElementById('futureList').innerHTML = "";
+                document.getElementById('stageInfo').style.display = 'none';
+                return; 
             }
+
             const curTime = globalCurTime;
             const all = Object.values(savedData).sort((a,b) => a.timeSec - b.timeSec);
             
-            // --- ここに、前回作成した「ステージ点滅」や「メインカード表示」のロジックがすべて入ります ---
-            // (長くなるため、構成は前回のロジックと同じです)
+            // ステージ情報
+            const activeStage = all.find(item => {
+                const timeLeft = item.timeSec - curTime;
+                const d = item.duration || 3;
+                return item.title.startsWith('【ステージギミック】') && timeLeft <= 0 && (timeLeft + d) > 0;
+            });
+
+            const stageEl = document.getElementById('stageInfo');
+            if (activeStage) {
+                const aLeft = (activeStage.duration || 3) + Math.floor(activeStage.timeSec - curTime);
+                stageEl.innerText = `● ${activeStage.title.replace('【ステージギミック】', '')} (${aLeft}s)`;
+                stageEl.style.display = 'block';
+                if(aLeft <= 5) stageEl.classList.add('stage-danger'); else stageEl.classList.remove('stage-danger');
+            } else { stageEl.style.display = 'none'; stageEl.classList.remove('stage-danger'); }
+
+            // メインカード
+            const upcoming = all.filter(item => {
+                const timeLeft = item.timeSec - curTime;
+                const d = item.duration || 3;
+                if (item.title.startsWith('【ステージギミック】')) return timeLeft > 0;
+                return (item.timeSec + d) >= curTime;
+            });
+            
+            const nextCard = document.getElementById('nextCard');
+            const pBar = document.getElementById('pBar');
+
+            if(upcoming.length > 0) {
+                const next = upcoming[0];
+                const nextId = next.timeSec + next.title;
+                const timeLeft = next.timeSec - curTime;
+
+                if(nextId !== lastGigId) {
+                    lastGigId = nextId;
+                    nextCard.classList.remove('fade-up'); void nextCard.offsetWidth; nextCard.classList.add('fade-up');
+                }
+
+                nextCard.style.display = 'block';
+                document.getElementById('nTitle').innerText = next.title;
+                document.getElementById('nDetail').innerText = next.detail || "";
+
+                if (timeLeft <= 0) {
+                    document.getElementById('nLabel').innerHTML = `<span class="status-badge">ACTIVE</span> ${next.timeStr}`;
+                    pBar.className = 'progress-bar active-now';
+                } else {
+                    document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
+                    pBar.className = 'progress-bar';
+                    let progress = 0; if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
+                    pBar.style.width = progress + "%";
+                    if (timeLeft <= 3) pBar.classList.add('danger', 'flash-red');
+                }
+
+                let futureHtml = "";
+                upcoming.slice(1, 4).forEach(f => {
+                    futureHtml += `<div class="future-item"><span>${f.title}</span><span>${f.timeStr}</span></div>`;
+                });
+                document.getElementById('futureList').innerHTML = futureHtml;
+            } else {
+                nextCard.style.display = 'none';
+                document.getElementById('futureList').innerHTML = activeStage ? "" : "<div style='color:#666'>Timeline Finished</div>";
+            }
         }
     </script>
 </body>
