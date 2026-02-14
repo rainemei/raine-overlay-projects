@@ -2,102 +2,117 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Timeline Controller Pro</title>
+    <title>Timeline Controller Pro v3</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        body { font-family: sans-serif; background: #111; color: white; padding: 0; margin: 0; overflow-x: hidden; }
-        
-        /* タブナビゲーション */
-        .tabs { display: flex; background: #222; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #444; }
-        .tab-btn { flex: 1; background: #222; color: #888; border: none; padding: 15px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        /* レイアウトの骨格 */
+        body { font-family: sans-serif; background: #111; color: white; padding: 0; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .fixed-header { flex-shrink: 0; background: #222; z-index: 1000; border-bottom: 1px solid #444; }
+        .scroll-content { flex-grow: 1; overflow-y: auto; padding: 10px; scroll-behavior: smooth; }
+
+        /* タブ */
+        .tabs { display: flex; border-bottom: 1px solid #444; }
+        .tab-btn { flex: 1; background: #222; color: #888; border: none; padding: 15px; font-weight: bold; cursor: pointer; }
         .tab-btn.active { background: #333; color: #00ffff; border-bottom: 3px solid #00ffff; }
 
-        .tab-content { display: none; padding: 15px; animation: fadeIn 0.2s; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* タイマー・カウンター */
+        .timer-display { text-align: center; font-family: monospace; font-size: 48px; color: #00ffff; margin: 5px 0; }
+        .counter-bar { display: flex; justify-content: center; gap: 20px; background: #222; padding: 5px 0; font-size: 14px; border-bottom: 1px solid #333; }
+        .counter-item { display: flex; align-items: center; gap: 8px; }
+        .counter-btn { width: 30px; padding: 2px; background: #444; color: white; border-radius: 4px; font-size: 16px; }
+
+        /* 各種スイッチ */
+        .switch-area { display: flex; justify-content: space-around; padding: 10px; background: #2a2a2a; font-size: 12px; }
+        .toggle-label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
 
         /* 入力パーツ */
-        .input-card { background: #333; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .tab-pane { display: none; padding: 15px; }
+        .tab-pane.active { display: block; }
+        .input-card { background: #333; padding: 15px; border-radius: 8px; }
         input, select, textarea { width: 100%; margin-bottom: 10px; background: #444; border: 1px solid #555; color: white; padding: 12px; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
         
-        /* ボタン */
-        button { width: 100%; padding: 12px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-        .btn-start { background: #28a745; color: white; }
-        .btn-stop { background: #ffc107; color: black; }
-        .btn-reset { background: #dc3545; color: white; }
-        .btn-save { background: #007bff; color: white; margin-top: 10px; font-size: 18px; }
-        .btn-timestamp { background: #17a2b8; color: white; }
-        .tmpl-btn { background: #555; color: white; width: auto; display: inline-block; margin: 2px; padding: 8px 12px; }
+        button { padding: 12px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
+        .btn-main { background: #007bff; color: white; width: 100%; }
+        .btn-timestamp { background: #17a2b8; color: white; width: 100%; font-size: 18px; margin-top: 10px; }
+        .tmpl-btn { background: #555; color: white; margin: 2px; padding: 8px 12px; font-size: 12px; }
 
-        /* タイマー表示 */
-        .timer-display { text-align: center; font-family: monospace; font-size: 56px; color: #00ffff; margin: 10px 0; text-shadow: 0 0 10px rgba(0,255,255,0.5); }
-
-        /* メモリスト */
-        .memo-item { background: #2a2a2a; padding: 12px; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #ffd700; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
-        .memo-info { flex-grow: 1; cursor: pointer; }
-        .memo-info b { color: #00ffff; font-size: 18px; margin-right: 5px; }
-        .memo-info span { font-size: 16px; }
-        .memo-info small { display: block; color: #888; font-size: 11px; margin-top: 4px; }
-        .btn-edit { width: auto; background: #555; margin: 0 0 0 5px; padding: 8px; }
+        /* リスト */
+        .memo-item { background: #2a2a2a; padding: 12px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; border-left: 5px solid #ffd700; transition: background 0.3s; }
+        .memo-item.active-now { background: #3a3a10; border-left-color: #00ffff; box-shadow: 0 0 10px rgba(0,255,255,0.3); }
+        .memo-info { flex-grow: 1; }
+        .memo-info b { color: #00ffff; font-size: 18px; }
     </style>
 </head>
 <body>
 
-<div class="tabs">
-    <button id="btn-remote" class="tab-btn active" onclick="showTab('remote')">REMOTE</button>
-    <button id="btn-edit" class="tab-btn" onclick="showTab('edit')">EDIT</button>
-    <button id="btn-manage" class="tab-btn" onclick="showTab('manage')">MANAGE</button>
-</div>
-
-<div id="tab-remote" class="tab-content active">
-    <div class="timer-display" id="remoteTimer">00:00</div>
-    <div style="display: flex; gap: 8px;">
-        <button class="btn-start" onclick="controlTimer('start')">START</button>
-        <button class="btn-stop" onclick="controlTimer('stop')">STOP</button>
-        <button class="btn-reset" onclick="controlTimer('reset')">RESET</button>
+<div class="fixed-header">
+    <div class="tabs">
+        <button id="tabBtn-remote" class="tab-btn active" onclick="showTab('remote')">REMOTE</button>
+        <button id="tabBtn-edit" class="tab-btn" onclick="showTab('edit')">EDIT</button>
+        <button id="tabBtn-manage" class="tab-btn" onclick="showTab('manage')">MANAGE</button>
     </div>
-    <div style="display: flex; gap: 8px; margin-top: 8px;">
-        <button style="background:#444;" onclick="adjustTime(-5)">-5s</button>
-        <button style="background:#444;" onclick="adjustTime(5)">+5s</button>
-    </div>
-    <button class="btn-timestamp" style="margin-top: 15px;" onclick="setCurrentTimestamp()">🕒 今の時間をセットして作成</button>
-</div>
 
-<div id="tab-edit" class="tab-content">
-    <div class="input-card">
-        <div style="margin-bottom: 10px;">
-            <button class="tmpl-btn" onclick="setTmpl('【全体攻撃】')">全体</button>
-            <button class="tmpl-btn" onclick="setTmpl('【強攻撃】')">強攻撃</button>
-            <button class="tmpl-btn" onclick="setTmpl('【散開】')">散開</button>
-            <button class="tmpl-btn" onclick="setTmpl('【頭割り】')">頭割り</button>
-            <button class="tmpl-btn" onclick="setTmpl('【ステージギミック】')">ステージ</button>
+    <div class="counter-bar">
+        <div class="counter-item">
+            SET: <button class="counter-btn" onclick="addCounter('setCount', -1)">-</button>
+            <span id="display-setCount">1</span>
+            <button class="counter-btn" onclick="addCounter('setCount', 1)">+</button>
         </div>
-        <div style="display:flex; gap:5px;">
-            <input type="text" id="inTime" placeholder="00:00" style="width:100px;">
-            <input type="text" id="inTitle" placeholder="タイトル" style="flex-grow:1;">
-            <input type="number" id="inDuration" value="3" style="width:70px;" title="表示秒数">
+        <div class="counter-item" style="border-left: 1px solid #444; padding-left: 20px;">
+            PULL: <button class="counter-btn" onclick="addCounter('pullCount', -1)">-</button>
+            <span id="display-pullCount">0</span>
+            <button class="counter-btn" onclick="addCounter('pullCount', 1)">+</button>
         </div>
-        <textarea id="inDetail" placeholder="詳細メモ" rows="2"></textarea>
-        <button id="btn-save-main" class="btn-save" onclick="saveMemo()">メモを追加</button>
-        <button id="btn-cancel-edit" style="display:none; background:#666;" onclick="cancelEdit()">キャンセル</button>
+    </div>
+
+    <div id="pane-remote-head" class="tab-pane active" style="padding: 10px;">
+        <div class="timer-display" id="remoteTimer">00:00</div>
+        <div style="display: flex; gap: 8px;">
+            <button style="flex:1; background:#28a745; color:white;" onclick="controlTimer('start')">START</button>
+            <button style="flex:1; background:#ffc107;" onclick="controlTimer('stop')">STOP</button>
+            <button style="flex:1; background:#dc3545; color:white;" onclick="controlTimer('reset')">RESET</button>
+        </div>
+        
+        <div class="switch-area">
+            <label class="toggle-label"><input type="checkbox" id="autoScroll" checked> AUTOスクロール</label>
+            <label class="toggle-label"><input type="checkbox" id="jumpToEdit"> 記録時EDITへ移動</label>
+        </div>
+        
+        <button class="btn-timestamp" onclick="setCurrentTimestamp()">🕒 今の時間をクイック記録</button>
     </div>
 </div>
 
-<div id="tab-manage" class="tab-content">
-    <div class="input-card">
-        <label style="font-size:12px; color:#aaa;">コンテンツ切替</label>
-        <div style="display:flex; gap:5px; margin-top:5px;">
-            <select id="contentSelect" onchange="changeContent()" style="margin:0;"></select>
-            <button onclick="addContentName()" style="width:auto; background:#007bff; margin:0;">追加</button>
+<div class="scroll-content" id="listContainer">
+    <div id="pane-edit" class="tab-pane">
+        <div class="input-card">
+            <div style="margin-bottom: 10px;">
+                <button class="tmpl-btn" onclick="setTmpl('【全体攻撃】')">全体</button>
+                <button class="tmpl-btn" onclick="setTmpl('【強攻撃】')">強攻撃</button>
+                <button class="tmpl-btn" onclick="setTmpl('【ステージギミック】')">ステージ</button>
+            </div>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="inTime" placeholder="00:00" style="width:100px;">
+                <input type="text" id="inTitle" placeholder="タイトル" style="flex-grow:1;">
+            </div>
+            <textarea id="inDetail" placeholder="詳細メモ" rows="2"></textarea>
+            <button id="btn-save-main" class="btn-main" onclick="saveMemo()">保存</button>
         </div>
-        <button class="btn-reset" style="margin-top:20px; font-size:12px;" onclick="clearAllMemos()">このコンテンツをオールクリア</button>
     </div>
-</div>
 
-<div id="memoList" style="padding: 10px;"></div>
+    <div id="pane-manage" class="tab-pane">
+        <div class="input-card">
+            <select id="contentSelect" onchange="changeContent()"></select>
+            <button class="btn-main" style="background:#007bff; margin-bottom:10px;" onclick="addContentName()">＋ コンテンツ追加</button>
+            <button style="background:#666; width:100%; color:white;" onclick="clearAllMemos()">オールクリア</button>
+        </div>
+    </div>
+
+    <div id="memoList"></div>
+</div>
 
 <script>
+    // ★Firebase設定（ご自身のものを貼ってください）
     const firebaseConfig = {
         apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
         authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -112,15 +127,70 @@
 
     let editingKey = null;
     let timerInterval = null;
+    let currentSec = 0;
 
     // --- タブ切り替え ---
     function showTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById('tab-' + tabId).classList.add('active');
-        document.getElementById('btn-' + tabId).classList.add('active');
+        document.getElementById('tabBtn-' + tabId).classList.add('active');
+        
+        if(tabId === 'remote') {
+            document.getElementById('pane-remote-head').classList.add('active');
+        } else {
+            document.getElementById('pane-' + tabId).classList.add('active');
+        }
     }
 
+    // --- カウンター機能 ---
+    function addCounter(type, val) {
+        db.ref('counter/' + type).transaction(c => Math.max(0, (c || 0) + val));
+    }
+    db.ref('counter/setCount').on('value', s => document.getElementById('display-setCount').innerText = s.val() || 1);
+    db.ref('counter/pullCount').on('value', s => document.getElementById('display-pullCount').innerText = s.val() || 0);
+
+    // --- タイマー・自動スクロール ---
+    db.ref('counter/currentTime').on('value', (snap) => {
+        currentSec = snap.val() || 0;
+        const m = Math.floor(currentSec/60); const s = currentSec%60;
+        document.getElementById('remoteTimer').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        
+        if(document.getElementById('autoScroll').checked) {
+            autoScrollToList(currentSec);
+        }
+    });
+
+    function autoScrollToList(sec) {
+        const items = document.querySelectorAll('.memo-item');
+        let target = null;
+        items.forEach(el => {
+            el.classList.remove('active-now');
+            const time = parseInt(el.getAttribute('data-sec'));
+            if(time <= sec) target = el;
+        });
+        if(target) {
+            target.classList.add('active-now');
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // --- 記録機能 ---
+    function setCurrentTimestamp() {
+        const m = Math.floor(currentSec/60); const s = currentSec%60;
+        const timeStr = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        
+        if(document.getElementById('jumpToEdit').checked) {
+            document.getElementById('inTime').value = timeStr;
+            showTab('edit');
+            document.getElementById('inTitle').focus();
+        } else {
+            // クイック保存（タイトル未設定として保存）
+            const content = document.getElementById('contentSelect').value;
+            db.ref(`savedMemos/${content}`).push({
+                timeStr, timeSec: currentSec, title: "--- 記録済 ---", duration: 3
+            });
+        }
+    }
     // --- コンテンツ管理 ---
     db.ref('contentsList').on('value', (snap) => {
         const list = snap.val() || { "default": "デフォルト" };
@@ -251,6 +321,7 @@
                         <b>[${m.timeStr}]</b> <span>${m.title}</span>
                         <small>タップでジャンプ / 詳細: ${m.detail || 'なし'}</small>
                     </div>
+                    <div class="memo-item" data-sec="${m.timeSec}">
                     <div style="display:flex;">
                         <button class="btn-edit" onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})'>編</button>
                         <button class="btn-edit" style="background:#444;" onclick="if(confirm('削除しますか？')) db.ref('savedMemos/${id}/${key}').remove()">消</button>
