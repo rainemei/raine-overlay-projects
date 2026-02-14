@@ -89,102 +89,109 @@
             messagingSenderId: "116002218964",
             appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        let lastGigId = "";
 
-        db.ref('counter').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if(!data) return;
+        let currentContent = "default"; // ここを切り替えられるようにする
 
-            const curTime = data.currentTime || 0;
-            const m = Math.floor(curTime/60); const s = curTime%60;
-            document.getElementById('nowTimer').innerText = `TIME: ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        // コンテンツ名を監視（URLのパラメータなどで変えられると便利です）
+        db.ref(`savedMemos/${currentContent}`).on('value', (snapshot) => {
 
-            const saved = data.savedMemos || {};
-            const all = Object.values(saved).sort((a,b) => a.timeSec - b.timeSec);
-            
-            // 1. ステージ情報の判定（【ステージギミック】で始まるもの）
-            const activeStage = all.find(item => {
-                const timeLeft = item.timeSec - curTime;
-                const d = item.duration || 3;
-                return item.title.startsWith('【ステージギミック】') && timeLeft <= 0 && (timeLeft + d) > 0;
-            });
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            const db = firebase.database();
+            let lastGigId = "";
 
-            const stageEl = document.getElementById('stageInfo');
-            if (activeStage) {
-                const timeLeft = activeStage.timeSec - curTime;
-                const d = activeStage.duration || 3;
-                const activeLeft = d + Math.floor(timeLeft); // 残り時間を計算
+            db.ref('counter').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if(!data) return;
 
-                // タイトルから【ステージギミック】を除去し、残り時間を追記
-                const cleanTitle = activeStage.title.replace('【ステージギミック】', '');
-                stageEl.innerText = `● ${cleanTitle} (${activeLeft}s)`;
+                const curTime = data.currentTime || 0;
+                const m = Math.floor(curTime/60); const s = curTime%60;
+                document.getElementById('nowTimer').innerText = `TIME: ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+                const saved = data.savedMemos || {};
+                const all = Object.values(saved).sort((a,b) => a.timeSec - b.timeSec);
                 
-                stageEl.style.display = 'block';
+                // 1. ステージ情報の判定（【ステージギミック】で始まるもの）
+                const activeStage = all.find(item => {
+                    const timeLeft = item.timeSec - curTime;
+                    const d = item.duration || 3;
+                    return item.title.startsWith('【ステージギミック】') && timeLeft <= 0 && (timeLeft + d) > 0;
+                });
 
-                // ★残り5秒以下なら点滅クラスを追加、そうでなければ消す
-                if (activeLeft <= 5) {
-                    stageEl.classList.add('stage-danger');
-                } else {
+                const stageEl = document.getElementById('stageInfo');
+                if (activeStage) {
+                    const timeLeft = activeStage.timeSec - curTime;
+                    const d = activeStage.duration || 3;
+                    const activeLeft = d + Math.floor(timeLeft); // 残り時間を計算
+
+                    // タイトルから【ステージギミック】を除去し、残り時間を追記
+                    const cleanTitle = activeStage.title.replace('【ステージギミック】', '');
+                    stageEl.innerText = `● ${cleanTitle} (${activeLeft}s)`;
+                    
+                    stageEl.style.display = 'block';
+
+                    // ★残り5秒以下なら点滅クラスを追加、そうでなければ消す
+                    if (activeLeft <= 5) {
+                        stageEl.classList.add('stage-danger');
+                    } else {
+                        stageEl.classList.remove('stage-danger');
+                    }
+
+                } else { 
+                    stageEl.style.display = 'none'; 
                     stageEl.classList.remove('stage-danger');
                 }
-
-            } else { 
-                stageEl.style.display = 'none'; 
-                stageEl.classList.remove('stage-danger');
-            }
-            // 2. 表示対象のフィルタリング
-            const upcoming = all.filter(item => {
-                const timeLeft = item.timeSec - curTime;
-                const d = item.duration || 3;
-                if (item.title.startsWith('【ステージギミック】')) return timeLeft > 0;
-                return (item.timeSec + d) >= curTime;
-            });
-            
-            const nextCard = document.getElementById('nextCard');
-            const futureList = document.getElementById('futureList');
-            const pBar = document.getElementById('pBar');
-
-            if(upcoming.length > 0) {
-                const next = upcoming[0];
-                const nextId = next.timeSec + next.title;
-                const timeLeft = next.timeSec - curTime;
-
-                if(nextId !== lastGigId) {
-                    lastGigId = nextId;
-                    nextCard.classList.remove('fade-up');
-                    void nextCard.offsetWidth;
-                    nextCard.classList.add('fade-up');
-                }
-
-                nextCard.style.display = 'block';
-                document.getElementById('nTitle').innerText = next.title;
-                document.getElementById('nDetail').innerText = next.detail || "";
-
-                if (timeLeft <= 0) {
-                    document.getElementById('nLabel').innerHTML = `<span class="status-badge">ACTIVE</span> ${next.timeStr}`;
-                    pBar.classList.add('active-now');
-                    pBar.classList.remove('danger', 'flash-red');
-                } else {
-                    document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
-                    pBar.classList.remove('active-now');
-                    let progress = 0;
-                    if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
-                    pBar.style.width = progress + "%";
-                    if (timeLeft <= 3) pBar.classList.add('danger', 'flash-red');
-                    else pBar.classList.remove('danger', 'flash-red');
-                }
-
-                let futureHtml = "";
-                upcoming.slice(1, 4).forEach(f => {
-                    futureHtml += `<div class="future-item"><span>${f.title}</span><span>${f.timeStr}</span></div>`;
+                // 2. 表示対象のフィルタリング
+                const upcoming = all.filter(item => {
+                    const timeLeft = item.timeSec - curTime;
+                    const d = item.duration || 3;
+                    if (item.title.startsWith('【ステージギミック】')) return timeLeft > 0;
+                    return (item.timeSec + d) >= curTime;
                 });
-                futureList.innerHTML = futureHtml;
-            } else {
-                nextCard.style.display = 'none';
-                futureList.innerHTML = activeStage ? "" : "<div style='color:#666'>Timeline Finished</div>";
-            }
+                
+                const nextCard = document.getElementById('nextCard');
+                const futureList = document.getElementById('futureList');
+                const pBar = document.getElementById('pBar');
+
+                if(upcoming.length > 0) {
+                    const next = upcoming[0];
+                    const nextId = next.timeSec + next.title;
+                    const timeLeft = next.timeSec - curTime;
+
+                    if(nextId !== lastGigId) {
+                        lastGigId = nextId;
+                        nextCard.classList.remove('fade-up');
+                        void nextCard.offsetWidth;
+                        nextCard.classList.add('fade-up');
+                    }
+
+                    nextCard.style.display = 'block';
+                    document.getElementById('nTitle').innerText = next.title;
+                    document.getElementById('nDetail').innerText = next.detail || "";
+
+                    if (timeLeft <= 0) {
+                        document.getElementById('nLabel').innerHTML = `<span class="status-badge">ACTIVE</span> ${next.timeStr}`;
+                        pBar.classList.add('active-now');
+                        pBar.classList.remove('danger', 'flash-red');
+                    } else {
+                        document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
+                        pBar.classList.remove('active-now');
+                        let progress = 0;
+                        if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
+                        pBar.style.width = progress + "%";
+                        if (timeLeft <= 3) pBar.classList.add('danger', 'flash-red');
+                        else pBar.classList.remove('danger', 'flash-red');
+                    }
+
+                    let futureHtml = "";
+                    upcoming.slice(1, 4).forEach(f => {
+                        futureHtml += `<div class="future-item"><span>${f.title}</span><span>${f.timeStr}</span></div>`;
+                    });
+                    futureList.innerHTML = futureHtml;
+                } else {
+                    nextCard.style.display = 'none';
+                    futureList.innerHTML = activeStage ? "" : "<div style='color:#666'>Timeline Finished</div>";
+                }
+            });
         });
     </script>
 </body>

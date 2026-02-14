@@ -43,13 +43,20 @@
                 <button class="tmpl-btn" onclick="setTmpl('【ギミック経過】')">ギミック</button>
                 <button class="tmpl-btn" onclick="setTmpl('【ステージギミック】')">ステージ</button>
             </div>
-        <div style="display:flex; gap:5px;">
-            <input type="text" id="inTime" placeholder="00:00" style="width:70px;">
-            <input type="text" id="inTitle" placeholder="概要">
-            <input type="number" id="inDuration" value="3" style="width:50px;" title="持続時間(秒)">
-        </div>
+
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="inTime" placeholder="00:00" style="width:70px;">
+                <input type="text" id="inTitle" placeholder="概要">
+                <input type="number" id="inDuration" value="3" style="width:50px;" title="持続時間(秒)">
+            </div>
         <textarea id="inDetail" placeholder="詳細"></textarea>
         <button onclick="addMemo()" style="width:100%; padding:10px; background:#28a745; color:white; border:none; border-radius:5px;">追加</button>
+    </div>
+
+    <div style="margin-bottom: 10px; border-bottom: 1px solid #555; padding-bottom: 10px;">
+        <label style="font-size: 12px;">現在のコンテンツ:</label>
+        <input type="text" id="contentName" value="default" style="width: 120px;">
+        <button onclick="clearAllMemos()" style="background: #d11; color: white; float: right;">オールクリア</button>
     </div>
 
     <div id="memoList"></div>
@@ -215,6 +222,39 @@
             document.getElementById('inTitle').value = txt;
             toggleTmpl(); // 選んだら閉じる
         }
+
+        // 保存ボタンの処理を修正
+        function saveMemo() {
+            const content = document.getElementById('contentName').value || 'default';
+            const timeStr = document.getElementById('inTime').value;
+            const title = document.getElementById('inTitle').value;
+            const duration = parseInt(document.getElementById('inDuration').value) || 3;
+            const detail = document.getElementById('inDetail').value;
+
+            if(!timeStr || !title) return;
+
+            // パスを savedMemos/コンテンツ名 に変更
+            db.ref(`savedMemos/${content}`).push({
+                timeStr,
+                timeSec: timeToSec(timeStr),
+                title,
+                duration,
+                detail
+            });
+
+            // 入力欄をリセット
+            document.getElementById('inTitle').value = "";
+            document.getElementById('inDetail').value = "";
+        }
+
+        // オールクリア機能
+        function clearAllMemos() {
+            const content = document.getElementById('contentName').value || 'default';
+            if(confirm(`コンテンツ「${content}」のメモをすべて削除しますか？`)) {
+                db.ref(`savedMemos/${content}`).remove();
+            }
+        }
+
     </script>
 </body>
 </html>
