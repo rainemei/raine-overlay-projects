@@ -106,7 +106,10 @@
             const all = Object.values(saved).sort((a,b) => a.timeSec - b.timeSec);
             
             // ★【重要】「発動から5秒以内」ならまだ表示リストに残す
-            const upcoming = all.filter(item => (item.timeSec + 5) >= curTime);
+            const upcoming = all.filter(item => {
+                const d = item.duration || 3; // 設定がなければ3秒
+                return (item.timeSec + d) >= curTime;
+            });
             
             const nextCard = document.getElementById('nextCard');
             const futureList = document.getElementById('futureList');
@@ -114,8 +117,8 @@
 
             if(upcoming.length > 0) {
                 const next = upcoming[0];
-                const nextId = next.timeSec + next.title;
                 const timeLeft = next.timeSec - curTime;
+                const duration = next.duration || 3; // このギミックの持続時間
 
                 // 1. 次のギミックに変わった時のアニメーション
                 if(nextId !== lastGigId) {
@@ -132,7 +135,9 @@
                 // 2. 状態による表示の出し分け
                 if (timeLeft <= 0) {
                     // 【発動中 (ACTIVE)】
-                    document.getElementById('nLabel').innerHTML = `<span class="status-badge">ACTIVE</span> ${next.timeStr}`;
+                    // あと何秒 ACTIVE かを表示に含めてもいいですね
+                    const activeLeft = duration + timeLeft; // timeLeftはマイナスなので足し算
+                    document.getElementById('nLabel').innerHTML = `<span class="status-badge">ACTIVE</span> ${next.timeStr} (あと${activeLeft}s)`;
                     pBar.classList.add('active-now');
                     pBar.classList.remove('danger', 'flash-red');
                 } else {

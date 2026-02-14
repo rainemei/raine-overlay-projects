@@ -45,17 +45,21 @@
         <div style="display:flex; gap:5px;">
             <input type="text" id="inTime" placeholder="00:00" style="width:70px;">
             <input type="text" id="inTitle" placeholder="概要">
+            <input type="number" id="inDuration" value="3" style="width:60px;" title="発動後の表示秒数">
         </div>
         <textarea id="inDetail" placeholder="詳細"></textarea>
-        <button onclick="addMemo()" style="width:100%; padding:10px; background:#28a745; color:white; border:none; border-radius:5px;">手動追加</button>
+        <button onclick="addMemo()" style="width:100%; padding:10px; background:#28a745; color:white; border:none; border-radius:5px;">追加</button>
     </div>
 
     <div id="memoList"></div>
 
     <div id="editOverlay" class="edit-overlay">
         <h3>📝 ギミック修正</h3>
-        <input type="text" id="edTime" placeholder="00:00">
-        <input type="text" id="edTitle" placeholder="概要">
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="edTime" placeholder="00:00">
+            <input type="text" id="edTitle" placeholder="概要">
+            <input type="number" id="edDuration" style="width:60px;">
+        </div>
         <textarea id="edDetail" placeholder="詳細" rows="10"></textarea>
         <button onclick="saveEdit()" style="padding:15px; background:#28a745; color:white; border:none; border-radius:10px;">保存</button>
         <button onclick="closeEdit()" style="padding:10px; background:#666; color:white; border:none; border-radius:10px; margin-top:10px;">キャンセル</button>
@@ -99,7 +103,8 @@
         function recordTime() {
             const timeStr = formatTime(elapsed);
             const timeSec = Math.floor(elapsed / 1000);
-            db.ref('counter/savedMemos').push({ timeStr, timeSec, title: "（未設定）", detail: "" });
+            // デフォルト3秒で記録
+            db.ref('counter/savedMemos').push({ timeStr, timeSec, title: "（未設定）", detail: "", duration: 3 });
         }
 
         function setTmpl(txt) { document.getElementById('inTitle').value = txt; }
@@ -111,7 +116,8 @@
             db.ref('counter/savedMemos').push({
                 timeStr: time, timeSec,
                 title: document.getElementById('inTitle').value,
-                detail: document.getElementById('inDetail').value
+                detail: document.getElementById('inDetail').value,
+                duration: parseInt(document.getElementById('inDuration').value) || 3 // 入力値を保存
             });
             document.getElementById('inTitle').value = ""; document.getElementById('inDetail').value = "";
         }
@@ -179,9 +185,11 @@
                 document.getElementById('edTime').value = d.timeStr;
                 document.getElementById('edTitle').value = d.title;
                 document.getElementById('edDetail').value = d.detail;
+                document.getElementById('edDuration').value = d.duration || 3; // 読み込み
                 document.getElementById('editOverlay').style.display = 'flex';
             });
         }
+
         function saveEdit() {
             const time = document.getElementById('edTime').value;
             const parts = time.split(':');
@@ -189,7 +197,8 @@
             db.ref('counter/savedMemos/'+currentEditKey).update({
                 timeStr: time, timeSec,
                 title: document.getElementById('edTitle').value,
-                detail: document.getElementById('edDetail').value
+                detail: document.getElementById('edDetail').value,
+                duration: parseInt(document.getElementById('edDuration').value) || 3 // 更新
             });
             closeEdit();
         }
