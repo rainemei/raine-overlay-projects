@@ -99,10 +99,18 @@
 
             const stageEl = document.getElementById('stageInfo');
             if (activeStage) {
-                stageEl.innerText = `● ${activeStage.title.replace('【ステージギミック】', '')}`;
-                stageEl.style.display = 'block';
-            } else { stageEl.style.display = 'none'; }
+                const timeLeft = activeStage.timeSec - curTime;
+                const d = activeStage.duration || 3;
+                const activeLeft = d + Math.floor(timeLeft); // 残り時間を計算
 
+                // タイトルから【ステージギミック】を除去し、残り時間を追記
+                const cleanTitle = activeStage.title.replace('【ステージギミック】', '');
+                stageEl.innerText = `● ${cleanTitle} (${activeLeft}s)`;
+                
+                stageEl.style.display = 'block';
+            } else { 
+                stageEl.style.display = 'none'; 
+            }
             // 2. 表示対象のフィルタリング
             const upcoming = all.filter(item => {
                 const timeLeft = item.timeSec - curTime;
