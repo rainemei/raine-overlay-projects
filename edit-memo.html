@@ -118,23 +118,44 @@
         db.ref('counter').on('value', (s) => {
             const data = s.val() || {};
             const listDiv = document.getElementById('memoList');
+            if (!listDiv) return; // 要素がない場合はスキップ
+
             listDiv.innerHTML = "";
             const saved = data.savedMemos || {};
-            const order = data.memoOrder || Object.keys(saved);
             
+            // memoOrderがある場合はそれに従い、なければsavedMemosのキーをそのまま使う
+            let order = data.memoOrder || [];
+            const savedKeys = Object.keys(saved);
+
+            // orderが空、または保存されているデータと不整合がある場合のレスキュー処理
+            if (order.length === 0 || !order.some(key => savedKeys.includes(key))) {
+                // 時間順（timeSec）に並べたものをデフォルトの並び順にする
+                order = savedKeys.sort((a, b) => (saved[a].timeSec || 0) - (saved[b].timeSec || 0));
+            }
+
             order.forEach(key => {
-                if(!saved[key]) return;
                 const m = saved[key];
+                if (!m) return; // データが存在しない場合はスキップ
+
+                // 古い形式（ただの文字列）だった場合の救済
+                const displayTitle = (typeof m === 'object') ? (m.title || "（無題）") : m;
+                const displayTime = (typeof m === 'object') ? (m.timeStr || "--:--") : "00:00";
+                const displayDetail = (typeof m === 'object') ? (m.detail || "") : "";
+
                 const item = document.createElement('div');
                 item.className = 'memo-item';
                 item.setAttribute('data-id', key);
                 item.innerHTML = `
                     <div class="handle">☰</div>
-                    <div class="memo-info">
-                        <span style="color:#ffd700">${m.timeStr}</span> <strong>${m.title}</strong>
+                    <div class="memo-info" onclick="applyMemo('${key}')">
+                        <span style="color:#ffd700; font-family:monospace;">[${displayTime}]</span> 
+                        <strong>${displayTitle}</strong>
+                        ${displayDetail ? '<div style="font-size:12px; color:#888;">' + displayDetail.substring(0, 20) + '...</div>' : ''}
                     </div>
-                    <button onclick="openEdit('${key}')" style="background:none; border:none; padding:15px; color:#aaa;">✎</button>
-                    <button onclick="deleteMemo('${key}')" style="background:none; border:none; padding:15px; color:#dc3545;">×</button>
+                    <div style="display:flex;">
+                        <button onclick="openEdit('${key}')" style="background:none; border:none; padding:15px; color:#aaa; font-size:18px;">✎</button>
+                        <button onclick="deleteMemo('${key}')" style="background:none; border:none; padding:15px; color:#dc3545; font-size:18px;">×</button>
+                    </div>
                 `;
                 listDiv.appendChild(item);
             });
