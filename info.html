@@ -33,6 +33,22 @@
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         .future-item { background: rgba(0,0,0,0.6); border-left: 4px solid #666; padding: 10px; margin-bottom: 5px; opacity: 0.8; font-size: 16px; display: flex; justify-content: space-between; }
+
+        /* バーが赤くなる時のスタイル */
+        .progress-bar.danger {
+            background: rgba(255, 69, 0, 0.6); /* 鮮やかなオレンジレッド */
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5); /* 外側に光を出す */
+        }
+
+        /* 3秒前の点滅アニメーション */
+        .flash-red {
+            animation: flash 0.5s infinite alternate;
+        }
+        @keyframes flash {
+            from { opacity: 1; }
+            to { opacity: 0.4; }
+        }
+
     </style>
 </head>
 <body>
@@ -104,10 +120,21 @@
                 document.getElementById('nLabel').innerText = `NEXT: ${next.timeStr} (${timeLeft}s)`;
 
                 // ぬるぬるプログレスバー計算
+                const pBar = document.getElementById('pBar');
+                
                 let progress = 0;
                 if (timeLeft <= 10) progress = ((10 - timeLeft) / 10) * 100;
                 if (timeLeft <= 0) progress = 100;
-                document.getElementById('pBar').style.width = progress + "%";
+                pBar.style.width = progress + "%";
+
+                // ★3秒前判定（赤くして点滅させる）
+                if (timeLeft <= 3 && timeLeft > 0) {
+                    pBar.classList.add('danger');    // 赤くする
+                    pBar.classList.add('flash-red'); // 点滅させる
+                } else {
+                    pBar.classList.remove('danger');
+                    pBar.classList.remove('flash-red');
+                }
 
                 // 未来のリスト（ここは今まで通り）
                 let futureHtml = "";
