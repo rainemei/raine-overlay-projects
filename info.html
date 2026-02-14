@@ -5,49 +5,47 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        body { background: transparent; color: white; font-family: sans-serif; margin: 0; padding: 10px; overflow: hidden; }
-        .timeline-container { width: 400px; }
+        body { background: transparent; color: white; font-family: sans-serif; margin: 0; padding: 10px; }
+        .container { width: 400px; }
         
-        /* 次のギミック（Next）のスタイル */
+        /* タイマー表示 */
+        #nowTimer { font-family: monospace; font-size: 20px; color: #00ffff; margin-bottom: 10px; text-shadow: 0 0 5px #000; }
+
+        /* Nextカード */
         .next-card {
-            background: rgba(0, 0, 0, 0.85);
-            border-left: 8px solid #ffd700;
-            padding: 15px;
-            margin-bottom: 12px;
-            border-radius: 4px;
-            animation: pulse 2s infinite;
+            position: relative; background: rgba(0,0,0,0.8);
+            border-left: 8px solid #ffd700; border-radius: 4px;
+            padding: 15px; margin-bottom: 15px; overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .next-label { color: #ffd700; font-size: 14px; font-weight: bold; text-transform: uppercase; }
-        .next-title { font-size: 26px; font-weight: bold; margin: 5px 0; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
-        .next-detail { font-size: 16px; color: #ddd; border-top: 1px solid #444; padding-top: 8px; white-space: pre-wrap; line-height: 1.4; }
+        
+        /* プログレスバー背景（左から伸びる） */
+        .progress-bar {
+            position: absolute; top: 0; left: 0; height: 100%;
+            background: rgba(255, 215, 0, 0.15);
+            width: 0%; z-index: 0; pointer-events: none;
+        }
 
-        /* その後の予定（控え） */
-        .future-item {
-            background: rgba(0, 0, 0, 0.6);
-            border-left: 4px solid #666;
-            padding: 10px 15px;
-            margin-bottom: 6px;
-            font-size: 16px;
-            opacity: 0.8;
-            display: flex;
-            justify-content: space-between;
-        }
-        .future-time { color: #aaa; font-family: monospace; }
+        .next-content { position: relative; z-index: 1; }
+        .next-label { color: #ffd700; font-size: 14px; font-weight: bold; }
+        .next-title { font-size: 28px; font-weight: bold; margin: 5px 0; }
+        .next-detail { font-size: 16px; color: #ddd; border-top: 1px solid #444; padding-top: 8px; }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0px rgba(255,215,0,0); }
-            50% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
-            100% { box-shadow: 0 0 0px rgba(255,215,0,0); }
-        }
+        /* アニメーション用：切り替わり時にスッと大きく */
+        .fade-up { animation: fadeUp 0.5s ease-out; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        
+        .future-item { background: rgba(0,0,0,0.6); border-left: 4px solid #666; padding: 10px; margin-bottom: 5px; opacity: 0.8; font-size: 16px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-
-    <div class="timeline-container" id="displayArea">
-        </div>
+    <div class="container">
+        <div id="nowTimer">TIME: 00:00</div>
+        <div id="displayArea"></div>
+    </div>
 
     <script>
-        // ★ご自身のFirebase情報をここに貼り付け
+        // ★Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
             authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -57,53 +55,52 @@
             messagingSenderId: "116002218964",
             appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
-
-        // Firebaseの初期化（ここがエラーの箇所でした！）
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // データの監視
+        let lastGigId = "";
+
         db.ref('counter').on('value', (snapshot) => {
             const data = snapshot.val();
-            if (!data) return;
+            if(!data) return;
 
-            const curTime = data.currentTime || 0; // ストップウォッチの現在秒数
+            const curTime = data.currentTime || 0;
+            const m = Math.floor(curTime/60); const s = curTime%60;
+            document.getElementById('nowTimer').innerText = `TIME: ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
             const saved = data.savedMemos || {};
+            const all = Object.values(saved).sort((a,b) => a.timeSec - b.timeSec);
+            const upcoming = all.filter(item => item.timeSec >= curTime);
             
-            // 全データを時間順（timeSec）に並べ替え
-            const allMemos = Object.values(saved).sort((a, b) => a.timeSec - b.timeSec);
-            
-            // 「まだ始まっていない（現在時間以上の）」ギミックだけを抽出
-            // ※遊びとして3秒前まで表示し続けるように調整しています（-3）
-            const upcoming = allMemos.filter(m => m.timeSec >= (curTime - 3));
-            
-            const displayArea = document.getElementById('displayArea');
-            displayArea.innerHTML = "";
-
-            if (upcoming.length > 0) {
-                // 1番目：大きく「Next」として表示
+            const area = document.getElementById('displayArea');
+            if(upcoming.length > 0) {
                 const next = upcoming[0];
-                displayArea.innerHTML += `
-                    <div class="next-card">
-                        <div class="next-label">Next: ${next.timeStr}</div>
-                        <div class="next-title">${next.title}</div>
-                        <div class="next-detail">${next.detail || ""}</div>
+                const nextId = next.timeSec + next.title;
+                
+                // 次のギミックが変わった時にアニメーションを適用
+                const isNew = nextId !== lastGigId;
+                if(isNew) lastGigId = nextId;
+
+                // 進行度計算 (直前のギミックから次のギミックまでの時間...は難しいので、一律10秒前からバーを伸ばす設定)
+                const timeLeft = next.timeSec - curTime;
+                const progress = Math.max(0, Math.min(100, (10 - timeLeft) * 10)); 
+
+                area.innerHTML = `
+                    <div class="next-card ${isNew ? 'fade-up' : ''}">
+                        <div class="progress-bar" style="width: ${progress}%"></div>
+                        <div class="next-content">
+                            <div class="next-label">NEXT: ${next.timeStr} (${timeLeft}s)</div>
+                            <div class="next-title">${next.title}</div>
+                            <div class="next-detail">${next.detail || ""}</div>
+                        </div>
                     </div>
                 `;
 
-                // 2番目・3番目：小さく控えとして表示
-                upcoming.slice(1, 3).forEach(m => {
-                    displayArea.innerHTML += `
-                        <div class="future-item">
-                            <span>${m.title}</span>
-                            <span class="future-time">${m.timeStr}</span>
-                        </div>
-                    `;
+                upcoming.slice(1, 3).forEach(f => {
+                    area.innerHTML += `<div class="future-item"><span>${f.title}</span><span>${f.timeStr}</span></div>`;
                 });
             } else {
-                displayArea.innerHTML = "<div style='color:#666; font-style:italic;'>Timeline End / Waiting...</div>";
+                area.innerHTML = "<div style='color:#666'>Timeline Finished</div>";
             }
         });
     </script>
