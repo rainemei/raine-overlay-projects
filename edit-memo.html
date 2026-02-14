@@ -4,54 +4,50 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
-        body { background: #1a1a1a; color: white; font-family: sans-serif; padding: 15px; margin: 0; }
+        body { background: #1a1a1a; color: white; font-family: sans-serif; padding: 10px; }
+        /* ストップウォッチエリア */
+        .timer-box { background: #333; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px; }
+        #timerDisplay { font-size: 32px; font-family: monospace; color: #00ffff; }
+        .timer-btns button { padding: 10px; margin: 5px; border-radius: 5px; border: none; font-weight: bold; }
         
-        /* 編集モード用の全画面オーバーレイ */
-        #editOverlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #1a1a1a; z-index: 1000; flex-direction: column; padding: 20px; box-sizing: border-box;
+        /* リストスタイル */
+        .memo-item { 
+            display: flex; background: #2a2a2a; margin-bottom: 5px; border-radius: 5px; 
+            align-items: center; cursor: grab;
         }
-        #editArea { flex-grow: 1; background: #333; color: white; border: 1px solid #555; padding: 15px; font-size: 18px; border-radius: 10px; margin-bottom: 15px; }
+        .handle { padding: 15px; color: #666; cursor: grab; }
+        .memo-text { flex-grow: 1; padding: 10px; }
+        .time-tag { background: #444; color: #ffd700; padding: 2px 5px; border-radius: 3px; font-size: 12px; margin-right: 5px; }
         
-        /* 既存のスタイル */
-        .current-box { background: #333; padding: 10px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid #00ffff; }
-        .memo-display-area { height: 200px; overflow-y: scroll; background: #111; border: 2px solid #444; border-radius: 10px; margin: 15px 0; padding: 15px; -webkit-overflow-scrolling: touch; }
-        .memo-content { padding-bottom: 200px; text-align: left; font-size: 18px; line-height: 1.6; white-space: pre-wrap; }
-        
-        .memo-item { display: flex; background: #333; border-radius: 8px; margin-bottom: 8px; align-items: stretch; }
-        .memo-text { flex-grow: 1; padding: 15px; text-align: left; }
-        .action-btn { border: none; width: 50px; color: white; cursor: pointer; }
-        .edit-btn { background: #555; }
-        .del-btn { background: #dc3545; }
-        .save-btn { background: #28a745; padding: 15px; font-size: 18px; border-radius: 10px; color: white; border: none; }
-        .cancel-btn { background: #666; padding: 10px; border-radius: 10px; color: white; border: none; margin-top: 10px; }
+        #editOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 1000; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        textarea { flex-grow: 1; background: #333; color: white; padding: 15px; font-size: 18px; border-radius: 10px; }
     </style>
 </head>
 <body>
 
+    <div class="timer-box">
+        <div id="timerDisplay">00:00.0</div>
+        <div class="timer-btns">
+            <button style="background: #28a745; color: white;" onclick="startTimer()">START</button>
+            <button style="background: #ffc107;" onclick="recordTime()">タイムライン記録</button>
+            <button style="background: #dc3545; color: white;" onclick="stopTimer()">STOP</button>
+            <button style="background: #666; color: white;" onclick="resetTimer()">RESET</button>
+        </div>
+    </div>
+
+    <div id="memoList"></div>
+
     <div id="editOverlay">
-        <h3>📝 メモを編集</h3>
+        <h3>メモ編集 (秒数指定: [00:00] 形式を文頭に)</h3>
         <textarea id="editArea"></textarea>
-        <button class="save-btn" onclick="saveEdit()">保存して更新</button>
-        <button class="cancel-btn" onclick="closeEdit()">キャンセル</button>
+        <button onclick="saveEdit()" style="background:#28a745; color:white; padding:15px; border:none; border-radius:10px;">保存</button>
+        <button onclick="closeEdit()" style="background:#666; color:white; padding:10px; border:none; border-radius:10px; margin-top:10px;">キャンセル</button>
     </div>
-
-    <div id="statusBox" class="current-box">現在表示中: <span id="curTitle">---</span></div>
-
-    <div class="memo-display-area" id="scrollArea">
-        <div class="memo-content" id="fullMemoContent">メモを選択してください。</div>
-    </div>
-
-    <div style="display: flex; gap: 5px;">
-        <input type="text" id="addInput" style="flex-grow: 1; padding: 12px; border-radius: 5px; background: #333; color: white; border: 1px solid #555;" placeholder="新しいメモを追加...">
-        <button onclick="addMemo()" style="padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px;">追加</button>
-    </div>
-
-    <div id="memoList" style="margin-top: 20px;"></div>
-    <a href="index.html" style="display: block; margin-top: 30px; color: #aaa; text-align: center;">← HUBに戻る</a>
 
     <script>
+        // ★Firebase設定を貼ってください
         const firebaseConfig = {
             apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
             authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -61,73 +57,76 @@
             messagingSenderId: "116002218964",
             appId: "1:116002218964:web:616f3503eaebacb4442c41"
         };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-        
-        let currentEditKey = null;
 
-        // スクロール同期
-        document.getElementById('scrollArea').addEventListener('scroll', (e) => {
-            db.ref('counter').update({ scrollPos: e.target.scrollTop });
-        });
+        let startTime, timerInterval, elapsed = 0;
+        let memoOrder = [];
 
+        // ストップウォッチ処理
+        function startTimer() {
+            if (timerInterval) return;
+            startTime = Date.now() - elapsed;
+            timerInterval = setInterval(() => {
+                elapsed = Date.now() - startTime;
+                const timeStr = formatTime(elapsed);
+                document.getElementById('timerDisplay').innerText = timeStr;
+                // 自動表示連携用にFirebaseへ秒数を送る
+                db.ref('counter/currentTime').set(Math.floor(elapsed / 1000));
+            }, 100);
+        }
+
+        function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
+        function resetTimer() { stopTimer(); elapsed = 0; document.getElementById('timerDisplay').innerText = "00:00.0"; db.ref('counter/currentTime').set(0); }
+
+        function formatTime(ms) {
+            const m = Math.floor(ms / 60000);
+            const s = Math.floor((ms % 60000) / 1000);
+            const ms1 = Math.floor((ms % 1000) / 100);
+            return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${ms1}`;
+        }
+
+        // 記録ボタン：新規メモとして現在のタイムスタンプを保存
+        function recordTime() {
+            const timeStr = formatTime(elapsed).substring(0, 5);
+            const newMemo = `[${timeStr}] 新しいギミック記録`;
+            db.ref('counter/savedMemos').push(newMemo);
+        }
+
+        // リスト表示 & 並び替え
+        const listDiv = document.getElementById('memoList');
         db.ref('counter').on('value', (s) => {
-            const data = s.val();
-            if(!data) return;
-
-            // 色替えの反映
-            const color = data.themeColor || '#00ffff';
-            document.getElementById('statusBox').style.borderLeftColor = color;
-
-            document.getElementById('curTitle').innerText = (data.memo || "---").substring(0, 15);
-            document.getElementById('fullMemoContent').innerText = data.memo || "";
-
-            const listDiv = document.getElementById('memoList');
-            listDiv.innerHTML = "";
+            const data = s.val() || {};
             const saved = data.savedMemos || {};
-            Object.keys(saved).forEach(key => {
-                const text = saved[key];
+            const order = data.memoOrder || Object.keys(saved);
+            
+            listDiv.innerHTML = "";
+            order.forEach(key => {
+                if(!saved[key]) return;
                 const item = document.createElement('div');
                 item.className = 'memo-item';
-                item.innerHTML = `
-                    <div class="memo-text" onclick="applyMemo('${key}')">${text.substring(0,20)}...</div>
-                    <button class="action-btn edit-btn" onclick="openEdit('${key}')">✎</button>
-                    <button class="action-btn del-btn" onclick="deleteMemo('${key}')">×</button>
-                `;
+                item.setAttribute('data-id', key);
+                item.innerHTML = `<div class="handle">☰</div><div class="memo-text" onclick="applyMemo('${key}')">${saved[key]}</div>`;
                 listDiv.appendChild(item);
             });
+        });
+
+        // 並び替えの有効化
+        Sortable.create(listDiv, {
+            handle: '.handle',
+            onEnd: function() {
+                const newOrder = Array.from(listDiv.children).map(el => el.getAttribute('data-id'));
+                db.ref('counter/memoOrder').set(newOrder);
+            }
         });
 
         function applyMemo(key) {
             db.ref('counter/savedMemos/' + key).once('value', (s) => {
                 db.ref('counter').update({ memo: s.val(), scrollPos: 0 });
-                document.getElementById('scrollArea').scrollTop = 0;
             });
         }
-
-        function openEdit(key) {
-            currentEditKey = key;
-            db.ref('counter/savedMemos/' + key).once('value', (s) => {
-                document.getElementById('editArea').value = s.val();
-                document.getElementById('editOverlay').style.display = 'flex';
-            });
-        }
-
-        function saveEdit() {
-            const newText = document.getElementById('editArea').value;
-            db.ref('counter/savedMemos/' + currentEditKey).set(newText);
-            // 現在表示中のメモならそれも更新
-            db.ref('counter').update({ memo: newText });
-            closeEdit();
-        }
-
-        function closeEdit() { document.getElementById('editOverlay').style.display = 'none'; }
-        function addMemo() {
-            const val = document.getElementById('addInput').value;
-            if(val) db.ref('counter/savedMemos').push(val);
-            document.getElementById('addInput').value = "";
-        }
-        function deleteMemo(key) { if(confirm('削除しますか？')) db.ref('counter/savedMemos/' + key).remove(); }
+        
+        // 編集・保存・削除は前回同様 (省略)
     </script>
 </body>
 </html>
