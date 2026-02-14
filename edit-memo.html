@@ -46,6 +46,20 @@
     <textarea id="inDetail" placeholder="詳細メモ" rows="2"></textarea>
     <button class="btn-save" onclick="saveMemo()">メモを追加</button>
     <button class="btn-clear" onclick="clearAllMemos()">オールクリア</button>
+
+    <div style="text-align: center; margin-bottom: 10px;">
+        <span id="remoteTimer" style="font-family: monospace; font-size: 32px; color: #00ffff;">00:00</span>
+    </div>
+    <div style="display: flex; gap: 5px;">
+        <button onclick="controlTimer('start')" style="background: #28a745;">START</button>
+        <button onclick="controlTimer('stop')" style="background: #ffc107; color: black;">STOP</button>
+        <button onclick="controlTimer('reset')" style="background: #dc3545;">RESET</button>
+    </div>
+    <div style="display: flex; gap: 5px; margin-top: 5px;">
+        <button onclick="adjustTime(-5)" style="background: #555;">-5秒</button>
+        <button onclick="adjustTime(5)" style="background: #555;">+5秒</button>
+    </div>
+
 </div>
 
 <div id="memoList" style="padding:10px;"></div>
@@ -131,6 +145,43 @@
         const id = document.getElementById('contentSelect').value;
         if(confirm("このコンテンツのメモを全て消去しますか？")) db.ref(`savedMemos/${id}`).remove();
     }
+
+    let timerInterval = null;
+
+    // Firebaseのタイマー（currentTime）を監視して表示
+    db.ref('counter/currentTime').on('value', (snap) => {
+        const t = snap.val() || 0;
+        const m = Math.floor(t / 60);
+        const s = t % 60;
+        document.getElementById('remoteTimer').innerText = 
+            `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    });
+
+    // タイマー操作
+    function controlTimer(action) {
+        if (action === 'start') {
+            if (timerInterval) return;
+            timerInterval = setInterval(() => {
+                db.ref('counter/currentTime').transaction(t => (t || 0) + 1);
+            }, 1000);
+        } else if (action === 'stop') {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        } else if (action === 'reset') {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            db.ref('counter/currentTime').set(0);
+        }
+    }
+
+    // 秒数調整
+    function adjustTime(sec) {
+        db.ref('counter/currentTime').transaction(t => {
+            const newTime = (t || 0) + sec;
+            return newTime < 0 ? 0 : newTime;
+        });
+    }
+
 </script>
 </body>
 </html>
