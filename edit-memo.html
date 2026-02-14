@@ -102,6 +102,7 @@
             <div style="display:flex; gap:8px;">
                 <input type="text" id="inTime" placeholder="00:00" style="width:110px;">
                 <input type="text" id="inTitle" placeholder="タイトル" style="flex-grow:1;">
+                <input type="number" id="inDuration" value="3" style="width:50px;" title="持続時間(秒)">
             </div>
             <textarea id="inDetail" placeholder="詳細メモ（省略可）" rows="2"></textarea>
             <button id="btn-save-main" class="btn-main" onclick="saveMemo()">💾 メモを保存</button>
@@ -250,13 +251,14 @@
         const content = document.getElementById('contentSelect').value;
         const timeStr = document.getElementById('inTime').value;
         const title = document.getElementById('inTitle').value;
+        const duration = parseInt(document.getElementById('inDuration').value) || 3;
         if(!timeStr || !title) return;
 
         const data = {
             timeStr,
             timeSec: (parseInt(timeStr.split(':')[0])*60) + parseInt(timeStr.split(':')[1]),
             title,
-            duration: 3,
+            duration,
             detail: document.getElementById('inDetail').value
         };
 
