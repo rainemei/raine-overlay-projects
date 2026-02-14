@@ -59,6 +59,10 @@
         appId: "1:116002218964:web:616f3503eaebacb4442c41"
     };
 
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+
     // 1. Firebaseからコンテンツ一覧を取得してセレクトボックスを更新
     db.ref('contentsList').on('value', (snapshot) => {
         const list = snapshot.val() || { "default": "デフォルト" };
