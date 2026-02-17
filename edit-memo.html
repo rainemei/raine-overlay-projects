@@ -41,6 +41,14 @@
         .btn-group { display: flex; gap: 4px; }
         .btn-sm { width: 40px; height: 40px; background: #444; color: white; font-size: 12px; }
         .btn-copy { background: #4b0082; }
+        
+        /* MOVIEタブ内のプレイヤーサイズ調整 */
+        #player-container { 
+        width: 80%; /* 少し小さくする */
+        margin: 0 auto 10px auto; 
+        aspect-ratio: 16/9; 
+        background: #000; 
+        }
     </style>
 </head>
 <body>
@@ -105,10 +113,15 @@
     <div id="pane-movie" class="tab-pane">
         <div class="input-card">
             <input type="text" id="ytUrl" placeholder="YouTube URLを貼り付け" onchange="loadVideo()">
-            <div id="player-container" style="width:100%; aspect-ratio:16/9; background:#000; margin-bottom:10px;">
-                <div id="player"></div> </div>
-            <p style="font-size:12px; color:#aaa;">※動画を再生/シークするとタイマーが同期します</p>
-            <button class="btn-timestamp" style="width:100%; margin:0;" onclick="setCurrentTimestamp()">🎬 この瞬間の時間を記録</button>
+            <div id="player-container">
+                <div id="player"></div>
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <button style="flex:1; background:#dc3545; color:white; padding:10px;" onclick="setVideoStartOffset()">🚩 ここを戦闘開始(0秒)にする</button>
+                <button style="flex:1; background:#17a2b8; color:white; padding:10px;" onclick="setCurrentTimestamp()">🎬 ギミックを記録</button>
+            </div>
+            <p style="font-size:12px; color:#aaa; text-align:center;">※現在の戦闘開始基準: <span id="startPointDisplay">00:00:00</span></p>
         </div>
     </div>
 
@@ -224,15 +237,23 @@
         });
     }
 
+    // クイック記録ボタンも相対時間で保存するように修正
     function setCurrentTimestamp() {
-        const m = Math.floor(currentSec/60); const s = currentSec%60;
-        const timeStr = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        const relativeSec = currentSec; // syncTimerで計算済みの相対秒
+        const timeStr = formatTime(relativeSec);
+        const content = document.getElementById('contentSelect').value;
+        
         if(document.getElementById('jumpToEdit').checked) {
             document.getElementById('inTime').value = timeStr;
             showTab('edit');
         } else {
-            const content = document.getElementById('contentSelect').value;
-            db.ref(`savedMemos/${content}`).push({ timeStr, timeSec: currentSec, title: "（記録済）", duration: 3, detail: "" });
+            db.ref(`savedMemos/${content}`).push({ 
+                timeStr, 
+                timeSec: relativeSec, 
+                title: "（記録済）", 
+                duration: 3, 
+                detail: "" 
+            });
         }
     }
 
@@ -393,13 +414,14 @@
     }
 
     // 動画の時間とFirebaseを同期させるループ
-    // 同期ループを少し賢く修正
+    // 同期ループの修正（オフセットを差し引いてFirebaseに送る）
     function syncTimerWithVideo() {
-        // プレイヤーが存在し、かつ「再生中」の時だけFirebaseを書き換える
         if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING) {
-            const videoTime = Math.floor(player.getCurrentTime());
-            if (Math.abs(videoTime - currentSec) > 1) {
-                db.ref('counter/currentTime').set(videoTime);
+            const absoluteVideoTime = Math.floor(player.getCurrentTime());
+            const relativeTime = Math.max(0, absoluteVideoTime - videoOffset); // オフセットを引く
+            
+            if (Math.abs(relativeTime - currentSec) > 1) {
+                db.ref('counter/currentTime').set(relativeTime);
             }
         }
         requestAnimationFrame(syncTimerWithVideo);
@@ -413,6 +435,25 @@
         }
     }
 
+    let videoOffset = 0; // 0秒基準とする動画の秒数
+
+    // 秒数を hh:mm:ss または mm:ss に変換する共通関数
+    function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        const mStr = String(m).padStart(2, '0');
+        const sStr = String(s).padStart(2, '0');
+        return h > 0 ? `${h}:${mStr}:${sStr}` : `${mStr}:${sStr}`;
+    }
+
+    // ★ここが重要：動画の今の時間を「0秒」に設定する
+    function setVideoStartOffset() {
+        if (!player) return;
+        videoOffset = Math.floor(player.getCurrentTime());
+        alert(`動画の ${formatTime(videoOffset)} を「戦闘開始(0秒)」に設定しました。`);
+        db.ref('counter/currentTime').set(0); // タイマーも0リセット
+    }
 
     function clearAllMemos() {
         const id = document.getElementById('contentSelect').value;
