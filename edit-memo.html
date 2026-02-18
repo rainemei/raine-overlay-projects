@@ -49,6 +49,24 @@
         aspect-ratio: 16/9; 
         background: #000; 
         }
+
+        /* パレット用スタイル */
+        .palette-area { background: #222; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; }
+        .palette-group { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+        .group-label { font-size: 11px; color: #aaa; width: 45px; font-weight: bold; }
+        .tag-btn { 
+            padding: 4px 8px; font-size: 12px; background: #444; color: white; border: none; 
+            border-radius: 4px; cursor: pointer; transition: 0.2s;
+        }
+        .tag-btn:hover { background: #666; }
+        /* ロール別カラー */
+        .tag-tnk { border-left: 3px solid #4682b4; } /* 青 */
+        .tag-hlr { border-left: 3px solid #2e8b57; } /* 緑 */
+        .tag-dps { border-left: 3px solid #b22222; } /* 赤 */
+        /* 攻撃種別カラー */
+        .tag-atk { background: #555; border: 1px solid #888; }
+        .tag-dbg { background: #4b0082; } /* デバフ系は紫 */
+
     </style>
 </head>
 <body>
@@ -91,12 +109,46 @@
                 <button class="tmpl-btn" onclick="setTmpl('【強攻撃】', 3)">強攻撃</button>
                 <button class="tmpl-btn" onclick="setTmpl('【ステージギミック】', 20)">ステージ</button>
             </div>
+            <div class="palette-area">
+                <div class="palette-group">
+                    <span class="group-label">誰に</span>
+                    <button class="tag-btn tag-tnk" onclick="addTag('MT')">MT</button>
+                    <button class="tag-btn tag-tnk" onclick="addTag('ST')">ST</button>
+                    <button class="tag-btn tag-hlr" onclick="addTag('PH')">PH</button>
+                    <button class="tag-btn tag-hlr" onclick="addTag('BH')">BH</button>
+                    <button class="tag-btn tag-dps" onclick="addTag('D1')">D1</button>
+                    <button class="tag-btn tag-dps" onclick="addTag('D2')">D2</button>
+                    <button class="tag-btn tag-dps" onclick="addTag('D3')">D3</button>
+                    <button class="tag-btn tag-dps" onclick="addTag('D4')">D4</button>
+                    <button class="tag-btn" onclick="addTag('ランタゲ')">ランタゲ</button>
+                </div>
+                <div class="palette-group">
+                    <span class="group-label">攻撃</span>
+                    <button class="tag-btn tag-atk" onclick="addTag('強攻撃')">強</button>
+                    <button class="tag-btn tag-atk" onclick="addTag('頭割り')">頭割</button>
+                    <button class="tag-btn tag-atk" onclick="addTag('距離減衰')">距離</button>
+                    <button class="tag-btn tag-atk" onclick="addTag('塔踏み')">塔</button>
+                    <button class="tag-btn tag-atk" onclick="addTag('扇範囲')">扇</button>
+                    <button class="tag-btn tag-atk" onclick="addTag('円範囲')">円</button>
+                    <button class="tag-btn tag-atk" onclick="addTag('直線範囲')">直線</button>
+                    <button class="tag-btn tag-atk" onclick="addTag('ノックバック')">KB</button>
+                </div>
+                <div class="palette-group">
+                    <span class="group-label">状態</span>
+                    <button class="tag-btn tag-dbg" onclick="addTag('DoT')">DoT</button>
+                    <button class="tag-btn tag-dbg" onclick="addTag('被ダメ増')">ダメ増</button>
+                    <button class="tag-btn tag-dbg" onclick="addTag('与ダメ減')">与減</button>
+                    <button class="tag-btn tag-dbg" onclick="addTag('スタン')">スタン</button>
+                    <button class="tag-btn tag-dbg" onclick="addTag('死の宣告')">宣告</button>
+                </div>
+            </div>
+
             <div style="display:flex; gap:8px;">
                 <input type="text" id="inTime" placeholder="00:00" style="width:110px;">
-                <input type="text" id="inTitle" placeholder="タイトル" style="flex-grow:1;">
+                <input type="text" id="inTitle" placeholder="タイトル (技名など)" style="flex-grow:1;">
                 <input type="number" id="inDuration" placeholder="秒数" style="width:70px;" value="3">
             </div>
-            <textarea id="inDetail" placeholder="詳細メモ" rows="2"></textarea>
+            <textarea id="inDetail" placeholder="詳細メモ（タグでポチポチ入力可能）" rows="3"></textarea>
             <button id="btn-save-main" style="background:#007bff; color:white; width:100%; padding:15px; font-size:18px;" onclick="saveMemo()">💾 保存</button>
             <button id="btn-cancel-edit" style="display:none; background:#666; width:100%; margin-top:5px; padding:10px; color:white;" onclick="cancelEdit()">キャンセル</button>
         </div>
@@ -256,6 +308,23 @@
             });
         }
     }
+
+    // タグを詳細欄にスマートに追加する関数
+    function addTag(tagName) {
+        const detailArea = document.getElementById('inDetail');
+        const currentText = detailArea.value;
+        
+        // 既に同じタグがある場合は追加しない（お好みで）
+        if (currentText.includes(`[${tagName}]`)) return;
+
+        // 末尾が空文字でないならスペースを入れる
+        const spacing = (currentText === "" || currentText.endsWith('\n')) ? "" : " ";
+        detailArea.value = currentText + spacing + `[${tagName}]`;
+        
+        // 入力後にフォーカスを戻す
+        detailArea.focus();
+    }
+
 
     // 複製時にDuration（秒数）も引き継ぐように修正
     function copyMemo(m) {
