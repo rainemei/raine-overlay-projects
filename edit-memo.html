@@ -2,71 +2,64 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Timeline Controller Pro v4.1</title>
+    <title>Timeline Controller Pro v8.6 (Custom Fixed)</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         /* 基本レイアウト */
         body { font-family: sans-serif; background: #111; color: white; padding: 0; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .fixed-header { flex-shrink: 0; background: #222; z-index: 1000; border-bottom: 1px solid #444; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .scroll-content { flex-grow: 1; overflow-y: auto; padding: 10px; scroll-behavior: smooth; }
-
+        .fixed-header { flex-shrink: 0; background: #222; z-index: 1000; border-bottom: 1px solid #444; }
+        
         /* タブ */
         .tabs { display: flex; border-bottom: 1px solid #444; }
         .tab-btn { flex: 1; background: #222; color: #888; border: none; padding: 15px; font-weight: bold; cursor: pointer; }
         .tab-btn.active { background: #333; color: #00ffff; border-bottom: 3px solid #00ffff; }
 
-        /* カウンター・タイマー */
+        /* カウンターバー */
         .counter-bar { display: flex; justify-content: center; gap: 20px; background: #1a1a1a; padding: 8px 0; border-bottom: 1px solid #333; }
         .counter-item { display: flex; align-items: center; gap: 10px; }
-        .counter-btn { width: 35px; height: 35px; background: #444; color: white; border-radius: 4px; font-size: 20px; border: none; }
-        .timer-display { text-align: center; font-family: monospace; font-size: 52px; color: #00ffff; margin: 10px 0; }
+        .counter-btn { width: 30px; height: 30px; background: #444; color: white; border: none; border-radius: 4px; }
 
-        /* 操作パネル */
-        .tab-pane { display: none; padding: 15px; }
-        .tab-pane.active { display: block; }
-        .switch-area { display: flex; justify-content: space-around; padding: 12px; background: #2a2a2a; font-size: 13px; border-radius: 8px; margin: 0 10px 10px 10px; }
-        .input-card { background: #333; padding: 15px; border-radius: 8px; }
-        
-        input, select, textarea { width: 100%; margin-bottom: 10px; background: #444; border: 1px solid #555; color: white; padding: 12px; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
-        button { cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
-        .btn-battle { width: calc(100% - 20px); background: #28a745; color: white; padding: 20px; font-size: 22px; margin: 0 10px 10px 10px; border: 2px solid #fff; }
-        .btn-timestamp { width: calc(100% - 20px); background: #17a2b8; color: white; padding: 15px; font-size: 18px; margin: 0 10px 15px 10px; }
+        /* クイックアクション */
+        .quick-actions { display: flex; gap: 8px; padding: 10px; background: #222; }
+        .btn-main { padding: 15px; font-size: 18px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
+        .btn-record { background: #17a2b8; color: white; flex: 2; }
+        .btn-finalize { background: #dc3545; color: white; flex: 1; }
 
-        /* メモリスト */
-        .memo-item { background: #2a2a2a; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; align-items: center; border-left: 6px solid #ffd700; transition: 0.3s; }
-        .memo-item.active-now { background: #3a3a10; border-left-color: #00ffff; transform: scale(1.02); }
-        .memo-info { flex-grow: 1; cursor: pointer; }
-        .memo-info b { color: #00ffff; font-size: 18px; margin-right: 5px; }
+        /* スティッキーヘッダー */
+        .sticky-sub-header { flex-shrink: 0; background: #111; border-bottom: 2px solid #444; padding: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 10; }
+        .scroll-list-container { flex-grow: 1; overflow-y: auto; padding: 10px; }
+
+        /* タイマー表示 */
+        .timer-display { text-align: center; font-family: monospace; font-size: 48px; color: #00ffff; margin: 10px 0; }
+
+        /* パレット */
+        .palette-area { background: #222; padding: 8px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; }
+        .palette-group { margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+        .group-label { font-size: 11px; color: #aaa; width: 40px; font-weight: bold; }
+        .tag-btn { padding: 4px 8px; font-size: 12px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .tag-tnk { border-left: 3px solid #4682b4; }
+        .tag-hlr { border-left: 3px solid #2e8b57; }
+        .tag-dps { border-left: 3px solid #b22222; }
+
+        /* MOVIEタブ調整：動画表示エリアを適正化 */
+        .movie-top-area { flex-shrink: 0; background: #000; padding: 5px; text-align: center; }
+        #player-container { width: 100%; max-width: 500px; height: 30vh; aspect-ratio: 16/9; margin: 0 auto; background: #000; }
+
+        /* メモアイテム */
+        .memo-item { background: #2a2a2a; padding: 10px; margin-bottom: 6px; border-radius: 8px; display: flex; align-items: center; border-left: 5px solid #ffd700; }
+        .memo-item.active-now { background: #3a3a10; border-left-color: #00ffff; }
+        .memo-info { flex-grow: 1; cursor: pointer; font-size: 14px; }
         .btn-group { display: flex; gap: 4px; }
-        .btn-sm { width: 40px; height: 40px; background: #444; color: white; font-size: 12px; }
-        .btn-copy { background: #4b0082; }
-        
-        /* MOVIEタブ内のプレイヤーサイズ調整 */
-        #player-container { 
-        width: 80%; /* 少し小さくする */
-        margin: 0 auto 10px auto; 
-        aspect-ratio: 16/9; 
-        background: #000; 
-        }
+        .btn-sm { width: 35px; height: 35px; background: #444; color: white; font-size: 12px; border: none; border-radius: 4px; }
+        .btn-del { background: #dc3545; }
+        .btn-copy { background: #6a5acd; }
+        .btn-paste { background: #20b2aa; }
+        .dur-btn { background: #555; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; border: none; }
 
-        /* パレット用スタイル */
-        .palette-area { background: #222; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; }
-        .palette-group { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-        .group-label { font-size: 11px; color: #aaa; width: 45px; font-weight: bold; }
-        .tag-btn { 
-            padding: 4px 8px; font-size: 12px; background: #444; color: white; border: none; 
-            border-radius: 4px; cursor: pointer; transition: 0.2s;
-        }
-        .tag-btn:hover { background: #666; }
-        /* ロール別カラー */
-        .tag-tnk { border-left: 3px solid #4682b4; } /* 青 */
-        .tag-hlr { border-left: 3px solid #2e8b57; } /* 緑 */
-        .tag-dps { border-left: 3px solid #b22222; } /* 赤 */
-        /* 攻撃種別カラー */
-        .tag-atk { background: #555; border: 1px solid #888; }
-        .tag-dbg { background: #4b0082; } /* デバフ系は紫 */
-
+        .tab-pane { display: none; height: 100%; flex-direction: column; overflow: hidden; }
+        .tab-pane.active { display: flex; }
+        input, select, textarea { width: 100%; margin-bottom: 8px; background: #333; border: 1px solid #555; color: white; padding: 10px; box-sizing: border-box; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -84,31 +77,29 @@
         <div class="counter-item" style="border-left:1px solid #444; padding-left:20px;">PULL: <button class="counter-btn" onclick="addCounter('pullCount', -1)">-</button><span id="display-pullCount">0</span><button class="counter-btn" onclick="addCounter('pullCount', 1)">+</button></div>
     </div>
 
-    <div id="pane-remote-head" class="tab-pane active" style="padding:0;">
-        <div class="timer-display" id="remoteTimer">00:00</div>
-        <div style="display: flex; gap: 8px; padding: 0 10px 10px 10px;">
-            <button style="flex:1; background:#444; color:white; padding:12px;" onclick="controlTimer('start')">START</button>
-            <button style="flex:1; background:#ffc107; padding:12px;" onclick="controlTimer('stop')">STOP</button>
-            <button style="flex:1; background:#dc3545; color:white; padding:12px;" onclick="controlTimer('reset')">RESET</button>
-        </div>
-        <div class="switch-area">
-            <label><input type="checkbox" id="autoScroll" checked> AUTOスクロール</label>
-            <label><input type="checkbox" id="jumpToEdit"> 記録時EDITへ移動</label>
-        </div>
+    <div class="quick-actions">
+        <button class="btn-main btn-record" onclick="setCurrentTimestamp()">🎬 記録</button>
+        <button class="btn-main btn-finalize" onclick="finalizeLastDuration()">⏱️ 終了確定</button>
     </div>
-    
-    <button id="btn-battle" class="btn-battle" onclick="battleStart()">⚔️ BATTLE START</button>
-    <button id="btn-quick-record" class="btn-timestamp" onclick="setCurrentTimestamp()">🕒 クイック記録 / 複製先確保</button>
+    <div id="status-msg" style="font-size:11px; color:#aaa; text-align:center; padding-bottom:5px; height:15px; background:#222;"></div>
 </div>
 
-<div class="scroll-content" id="listContainer">
-    <div id="pane-edit" class="tab-pane">
-        <div class="input-card">
-            <div style="margin-bottom:10px; display:flex; flex-wrap:wrap; gap:4px;">
-                <button class="tmpl-btn" onclick="setTmpl('【全体攻撃】', 3)">全体</button>
-                <button class="tmpl-btn" onclick="setTmpl('【強攻撃】', 3)">強攻撃</button>
-                <button class="tmpl-btn" onclick="setTmpl('【ステージギミック】', 20)">ステージ</button>
+<div style="flex-grow:1; overflow:hidden; display:flex; flex-direction:column;">
+    
+    <div id="pane-remote" class="tab-pane active">
+        <div class="sticky-sub-header">
+            <div class="timer-display" id="remoteTimer">00:00</div>
+            <div style="display: flex; gap: 8px;">
+                <button style="flex:1; background:#444; color:white; padding:15px; font-weight:bold;" onclick="controlTimer('start')">START</button>
+                <button style="flex:1; background:#ffc107; padding:15px; font-weight:bold;" onclick="controlTimer('stop')">STOP</button>
+                <button style="flex:1; background:#dc3545; color:white; padding:15px; font-weight:bold;" onclick="controlTimer('reset')">RESET</button>
             </div>
+        </div>
+        <div class="scroll-list-container"><div id="memoListRemote"></div></div>
+    </div>
+
+    <div id="pane-edit" class="tab-pane">
+        <div class="sticky-sub-header">
             <div class="palette-area">
                 <div class="palette-group">
                     <span class="group-label">誰に</span>
@@ -123,71 +114,48 @@
                     <button class="tag-btn" onclick="addTag('ランタゲ')">ランタゲ</button>
                 </div>
                 <div class="palette-group">
-                    <span class="group-label">攻撃</span>
-                    <button class="tag-btn tag-atk" onclick="addTag('強攻撃')">強</button>
-                    <button class="tag-btn tag-atk" onclick="addTag('頭割り')">頭割</button>
-                    <button class="tag-btn tag-atk" onclick="addTag('距離減衰')">距離</button>
-                    <button class="tag-btn tag-atk" onclick="addTag('塔踏み')">塔</button>
-                    <button class="tag-btn tag-atk" onclick="addTag('扇範囲')">扇</button>
-                    <button class="tag-btn tag-atk" onclick="addTag('円範囲')">円</button>
-                    <button class="tag-btn tag-atk" onclick="addTag('直線範囲')">直線</button>
-                    <button class="tag-btn tag-atk" onclick="addTag('ノックバック')">KB</button>
-                </div>
-                <div class="palette-group">
-                    <span class="group-label">状態</span>
-                    <button class="tag-btn tag-dbg" onclick="addTag('DoT')">DoT</button>
-                    <button class="tag-btn tag-dbg" onclick="addTag('被ダメ増')">ダメ増</button>
-                    <button class="tag-btn tag-dbg" onclick="addTag('与ダメ減')">与減</button>
-                    <button class="tag-btn tag-dbg" onclick="addTag('スタン')">スタン</button>
-                    <button class="tag-btn tag-dbg" onclick="addTag('死の宣告')">宣告</button>
+                    <span class="group-label">種類</span>
+                    <button class="tag-btn" onclick="addTag('全体')">全体</button>
+                    <button class="tag-btn" onclick="addTag('強攻撃')">強</button>
+                    <button class="tag-btn" onclick="addTag('頭割り')">頭割</button>
+                    <button class="tag-btn" onclick="addTag('距離減衰')">距離</button>
+                    <button class="tag-btn" onclick="addTag('塔踏み')">塔</button>
+                    <button class="tag-btn" onclick="addTag('扇範囲')">扇</button>
                 </div>
             </div>
-
-            <div style="display:flex; gap:8px;">
-                <input type="text" id="inTime" placeholder="00:00" style="width:110px;">
-                <input type="text" id="inTitle" placeholder="タイトル (技名など)" style="flex-grow:1;">
-                <input type="number" id="inDuration" placeholder="秒数" style="width:70px;" value="3">
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="inTime" placeholder="00:00" style="width:80px;">
+                <input type="text" id="inTitle" placeholder="技名" style="flex-grow:1;">
+                <input type="number" id="inDuration" style="width:60px;" value="3">
             </div>
-            <textarea id="inDetail" placeholder="詳細メモ（タグでポチポチ入力可能）" rows="3"></textarea>
-            <button id="btn-save-main" style="background:#007bff; color:white; width:100%; padding:15px; font-size:18px;" onclick="saveMemo()">💾 保存</button>
-            <button id="btn-cancel-edit" style="display:none; background:#666; width:100%; margin-top:5px; padding:10px; color:white;" onclick="cancelEdit()">キャンセル</button>
+            <textarea id="inDetail" placeholder="詳細メモ" rows="2"></textarea>
+            <button id="btn-save-main" style="background:#007bff; color:white; width:100%; padding:12px; font-weight:bold;" onclick="saveMemo()">💾 保存 / 更新</button>
+            <button id="btn-cancel-edit" style="display:none; background:#666; width:100%; margin-top:5px; padding:8px;" onclick="cancelEdit()">キャンセル</button>
         </div>
-    </div>
-
-    <div id="pane-manage" class="tab-pane">
-        <div class="input-card">
-            <select id="contentSelect" onchange="changeContent()"></select>
-            <button style="background:#007bff; color:white; width:100%; padding:12px; margin-bottom:10px;" onclick="addContentName()">＋ コンテンツ追加</button>
-            <button style="background:#dc3545; color:white; width:100%; padding:12px;" onclick="clearAllMemos()">⚠️ オールクリア</button>
-        </div>
+        <div class="scroll-list-container"><div id="memoList"></div></div>
     </div>
 
     <div id="pane-movie" class="tab-pane">
-        <div class="input-card">
+        <div class="movie-top-area">
             <input type="text" id="ytUrl" placeholder="YouTube URLを貼り付け" onchange="loadVideo()">
-            <div id="player-container">
-                <div id="player"></div>
-            </div>
-            
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
-                <button style="flex:1; background:#dc3545; color:white; padding:10px;" onclick="setVideoStartOffset()">🚩 ここを戦闘開始(0秒)にする</button>
-                <button style="flex:1; background:#17a2b8; color:white; padding:10px;" onclick="setCurrentTimestamp()">🎬 ギミックを記録</button>
-            </div>
-            <p style="font-size:12px; color:#aaa; text-align:center;">※現在の戦闘開始基準: <span id="startPointDisplay">00:00:00</span></p>
+            <div id="player-container"><div id="player"></div></div>
+            <button style="width:100%; background:#dc3545; color:white; padding:10px; font-weight:bold;" onclick="setVideoStartOffset()">🚩 ここを戦闘開始(0秒)にする</button>
         </div>
+        <div class="scroll-list-container"><div id="memoListMovie"></div></div>
     </div>
 
-    <div id="memoList"></div>
+    <div id="pane-manage" class="tab-pane">
+        <div class="scroll-list-container">
+            <select id="contentSelect" onchange="changeContent()"></select>
+            <button style="background:#007bff; color:white; width:100%; padding:15px; margin-bottom:10px;" onclick="addContentName()">＋ コンテンツ追加</button>
+            <button style="background:#dc3545; color:white; width:100%; padding:15px;" onclick="clearAllMemos()">⚠️ データをすべて削除</button>
+            <label style="display:block; margin-top:20px; font-size:18px;"><input type="checkbox" id="autoScroll" checked> AUTOスクロール</label>
+        </div>
+    </div>
 </div>
 
 <script>
-    // YouTube APIの読み込み
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-    // ★Firebase設定（ご自身のものを貼ってください）
+    // --- Firebase初期化 ---
     const firebaseConfig = {
         apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
         authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -200,29 +168,84 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let editingKey = null;
-    let timerInterval = null;
-    let currentSec = 0;
+    let currentSec = 0, videoOffset = 0, editingKey = null, lastMemoKey = null, timerInterval = null, player, clipboardMemo = null;
 
-    function showTab(tabId) {
-        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById('tabBtn-' + tabId).classList.add('active');
-        document.getElementById('pane-' + (tabId === 'remote' ? 'remote-head' : tabId)).classList.add('active');
-        // ボタンの表示制御
-        const isRemote = (tabId === 'remote' || tabId === 'movie');
-        document.getElementById('btn-battle').style.display = (tabId === 'remote' ? "block" : "none");
-        document.getElementById('btn-quick-record').style.display = isRemote ? "block" : "none";
+    function formatTime(sec) {
+        const m = Math.floor(sec / 60), s = sec % 60;
+        return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
     }
 
+    function showTab(tabId) {
+        document.querySelectorAll('.tab-pane, .tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tabBtn-' + tabId).classList.add('active');
+        document.getElementById('pane-' + tabId).classList.add('active');
+    }
+
+    // コピー・貼り付け
+    function copyContent(m) {
+        clipboardMemo = { title: m.title, duration: m.duration, detail: m.detail };
+        document.getElementById('status-msg').innerText = `コピー: ${m.title}`;
+    }
+
+    function pasteContent(key) {
+        if (!clipboardMemo) return;
+        const id = document.getElementById('contentSelect').value;
+        db.ref(`savedMemos/${id}/${key}`).update(clipboardMemo);
+        document.getElementById('status-msg').innerText = `貼り付け完了`;
+    }
+
+    // 基本データ操作
+    function saveMemo() {
+        const id = document.getElementById('contentSelect').value;
+        const timeStr = document.getElementById('inTime').value;
+        const title = document.getElementById('inTitle').value;
+        if(!timeStr || !title) return;
+        const timeSec = timeStr.split(':').reduce((acc, t) => (60 * acc) + +t);
+        const data = { timeStr, timeSec, title, duration: parseInt(document.getElementById('inDuration').value)||3, detail: document.getElementById('inDetail').value };
+        if(editingKey) db.ref(`savedMemos/${id}/${editingKey}`).update(data);
+        else db.ref(`savedMemos/${id}`).push(data);
+        cancelEdit();
+    }
+
+    function editMemo(key, m) {
+        editingKey = key;
+        document.getElementById('inTime').value = m.timeStr;
+        document.getElementById('inTitle').value = m.title;
+        document.getElementById('inDuration').value = m.duration;
+        document.getElementById('inDetail').value = m.detail || "";
+        document.getElementById('btn-save-main').innerText = "💾 更新する";
+        document.getElementById('btn-cancel-edit').style.display = "block";
+        showTab('edit');
+    }
+
+    function cancelEdit() {
+        editingKey = null;
+        document.getElementById('inTitle').value = ""; document.getElementById('inDetail').value = "";
+        document.getElementById('btn-save-main').innerText = "💾 保存";
+        document.getElementById('btn-cancel-edit').style.display = "none";
+    }
+
+    function deleteMemo(key) {
+        if(confirm("削除しますか？")) db.ref(`savedMemos/${document.getElementById('contentSelect').value}/${key}`).remove();
+    }
+
+    function adjustDuration(key, diff) {
+        db.ref(`savedMemos/${document.getElementById('contentSelect').value}/${key}/duration`).transaction(d => Math.max(1, (d || 3) + diff));
+    }
+
+    function addTag(tag) {
+        const area = document.getElementById('inDetail');
+        area.value += (area.value ? " " : "") + `[${tag}]`;
+        area.focus();
+    }
+
+    // タイマー・カウンター
     function addCounter(type, val) { db.ref('counter/' + type).transaction(c => Math.max(0, (c || 0) + val)); }
     db.ref('counter/setCount').on('value', s => document.getElementById('display-setCount').innerText = s.val() || 1);
     db.ref('counter/pullCount').on('value', s => document.getElementById('display-pullCount').innerText = s.val() || 0);
-
-    db.ref('counter/currentTime').on('value', (snap) => {
+    db.ref('counter/currentTime').on('value', snap => {
         currentSec = snap.val() || 0;
-        const m = Math.floor(currentSec/60); const s = currentSec%60;
-        document.getElementById('remoteTimer').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        document.getElementById('remoteTimer').innerText = formatTime(currentSec);
         if(document.getElementById('autoScroll').checked) autoScrollToList(currentSec);
     });
 
@@ -236,298 +259,107 @@
         }
     }
 
-    function battleStart() {
-        db.ref('counter/pullCount').transaction(c => (c || 0) + 1);
-        db.ref('counter/currentTime').set(0);
-        controlTimer('stop'); controlTimer('start');
+    function setCurrentTimestamp() {
+        const id = document.getElementById('contentSelect').value;
+        const newRef = db.ref(`savedMemos/${id}`).push({ timeStr: formatTime(currentSec), timeSec: currentSec, title: "（記録済）", duration: 3, detail: "" });
+        lastMemoKey = newRef.key;
+        document.getElementById('status-msg').innerText = `記録: ${formatTime(currentSec)}`;
     }
 
+    function finalizeLastDuration() {
+        if (!lastMemoKey) return;
+        const id = document.getElementById('contentSelect').value;
+        db.ref(`savedMemos/${id}/${lastMemoKey}`).once('value', snap => {
+            const data = snap.val();
+            if (data) {
+                const dur = Math.max(1, currentSec - data.timeSec);
+                db.ref(`savedMemos/${id}/${lastMemoKey}`).update({ duration: dur });
+                document.getElementById('status-msg').innerText = `確定: ${dur}秒`;
+            }
+        });
+    }
+
+    // リスト同期
+    function loadMemos(id) {
+        db.ref(`savedMemos/${id}`).off();
+        db.ref(`savedMemos/${id}`).on('value', snap => {
+            const data = snap.val() || {};
+            const listHTML = Object.entries(data).sort((a,b) => a[1].timeSec - b[1].timeSec).map(([key, m]) => `
+                <div class="memo-item" data-sec="${m.timeSec}">
+                    <div class="memo-info" onclick="db.ref('counter/currentTime').set(${m.timeSec})">
+                        <b>[${m.timeStr}]</b> ${m.title} 
+                        <span class="dur-adjust">(${m.duration}s) 
+                            <button class="dur-btn" onclick="adjustDuration('${key}', 1); event.stopPropagation();">+</button>
+                            <button class="dur-btn" onclick="adjustDuration('${key}', -1); event.stopPropagation();">-</button>
+                        </span>
+                        <br><small style="color:#aaa;">${m.detail || ''}</small>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-sm btn-copy" onclick='copyContent(${JSON.stringify(m).replace(/"/g, '&quot;')})'>コ</button>
+                        <button class="btn-sm btn-paste" onclick='pasteContent("${key}")'>貼</button>
+                        <button class="btn-sm" onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})'>編</button>
+                        <button class="btn-sm btn-del" onclick='deleteMemo("${key}")'>削</button>
+                    </div>
+                </div>`).join("");
+            document.getElementById('memoList').innerHTML = listHTML;
+            document.getElementById('memoListRemote').innerHTML = listHTML;
+            document.getElementById('memoListMovie').innerHTML = listHTML;
+        });
+    }
+
+    // YouTube
+    var ytTag = document.createElement('script'); ytTag.src = "https://www.youtube.com/iframe_api";
+    document.getElementsByTagName('script')[0].parentNode.insertBefore(ytTag, null);
+    function loadVideo() {
+        const url = document.getElementById('ytUrl').value;
+        let vid = url.includes('v=') ? url.split('v=')[1].split('&')[0] : (url.includes('/live/') ? url.split('/live/')[1].split('?')[0] : url.split('/').pop());
+        if (player) player.loadVideoById(vid);
+        else player = new YT.Player('player', { height:'100%', width:'100%', videoId: vid });
+    }
+    function syncTimerWithVideo() {
+        if (player && player.getPlayerState?.() === YT.PlayerState.PLAYING) {
+            const relTime = Math.max(0, Math.floor(player.getCurrentTime()) - videoOffset);
+            if (Math.abs(relTime - currentSec) > 1) db.ref('counter/currentTime').set(relTime);
+        }
+        requestAnimationFrame(syncTimerWithVideo);
+    }
+    requestAnimationFrame(syncTimerWithVideo);
+    function setVideoStartOffset() {
+        videoOffset = Math.floor(player.getCurrentTime());
+        db.ref('counter/currentTime').set(0);
+    }
+
+    // 管理・コンテンツ
+    function addContentName() {
+        const name = prompt("コンテンツ名:");
+        if (name) db.ref('contentsList').push(name);
+    }
+    function changeContent() {
+        const id = document.getElementById('contentSelect').value;
+        if(id) { db.ref('activeContentID').set(id); loadMemos(id); }
+    }
+    db.ref('contentsList').on('value', snap => {
+        const select = document.getElementById('contentSelect');
+        const current = select.value;
+        select.innerHTML = "";
+        Object.entries(snap.val() || {}).forEach(([id, name]) => {
+            const opt = document.createElement('option'); opt.value = id; opt.innerText = name;
+            select.appendChild(opt);
+        });
+        if(current && select.querySelector(`option[value="${current}"]`)) select.value = current;
+        changeContent();
+    });
+
     function autoScrollToList(sec) {
-        const items = document.querySelectorAll('.memo-item');
+        const items = document.querySelectorAll('.tab-pane.active .memo-item');
         let target = null;
         items.forEach(el => {
             el.classList.remove('active-now');
             if(parseInt(el.getAttribute('data-sec')) <= sec) target = el;
         });
-        if(target) {
-            target.classList.add('active-now');
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        if(target) { target.classList.add('active-now'); target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     }
-
-    db.ref('contentsList').on('value', (snap) => {
-        const list = snap.val() || { "default": "デフォルト" };
-        const select = document.getElementById('contentSelect');
-        const lastVal = select.value;
-        select.innerHTML = "";
-        Object.entries(list).forEach(([id, name]) => {
-            const opt = document.createElement('option'); opt.value = id; opt.innerText = name;
-            select.appendChild(opt);
-        });
-        if(lastVal) select.value = lastVal;
-        changeContent();
-    });
-
-    function changeContent() {
-        const id = document.getElementById('contentSelect').value;
-        db.ref('activeContentID').set(id);
-        loadMemos(id);
-    }
-
-    // コンテンツ（レイド名など）を新規追加する関数
-    function addContentName() {
-        const newName = prompt("新しいコンテンツ名を入力してください（例：絶もうひとつの未来）");
-        if (!newName) return;
-
-        // FirebaseのcontentsListに新しいIDで追加
-        const newRef = db.ref('contentsList').push();
-        newRef.set(newName).then(() => {
-            // 追加したら自動的にそのコンテンツを選択状態にする
-            document.getElementById('contentSelect').value = newRef.key;
-            changeContent();
-            alert("コンテンツを追加しました！");
-        });
-    }
-
-    // クイック記録ボタンも相対時間で保存するように修正
-    function setCurrentTimestamp() {
-        const relativeSec = currentSec; // syncTimerで計算済みの相対秒
-        const timeStr = formatTime(relativeSec);
-        const content = document.getElementById('contentSelect').value;
-        
-        if(document.getElementById('jumpToEdit').checked) {
-            document.getElementById('inTime').value = timeStr;
-            showTab('edit');
-        } else {
-            db.ref(`savedMemos/${content}`).push({ 
-                timeStr, 
-                timeSec: relativeSec, 
-                title: "（記録済）", 
-                duration: 3, 
-                detail: "" 
-            });
-        }
-    }
-
-    // タグを詳細欄にスマートに追加する関数
-    function addTag(tagName) {
-        const detailArea = document.getElementById('inDetail');
-        const currentText = detailArea.value;
-        
-        // 既に同じタグがある場合は追加しない（お好みで）
-        if (currentText.includes(`[${tagName}]`)) return;
-
-        // 末尾が空文字でないならスペースを入れる
-        const spacing = (currentText === "" || currentText.endsWith('\n')) ? "" : " ";
-        detailArea.value = currentText + spacing + `[${tagName}]`;
-        
-        // 入力後にフォーカスを戻す
-        detailArea.focus();
-    }
-
-
-    // 複製時にDuration（秒数）も引き継ぐように修正
-    function copyMemo(m) {
-        const mTime = Math.floor(currentSec/60); const sTime = currentSec%60;
-        document.getElementById('inTime').value = `${String(mTime).padStart(2,'0')}:${String(sTime).padStart(2,'0')}`;
-        document.getElementById('inTitle').value = m.title;
-        document.getElementById('inDuration').value = m.duration || 3;
-        document.getElementById('inDetail').value = m.detail || "";
-        editingKey = null;
-        document.getElementById('btn-save-main').innerText = "💾 複製を保存";
-        document.getElementById('btn-cancel-edit').style.display = "block";
-        showTab('edit');
-    }
-
-    function saveMemo() {
-        const content = document.getElementById('contentSelect').value;
-        const timeStr = document.getElementById('inTime').value;
-        const title = document.getElementById('inTitle').value;
-        const duration = parseInt(document.getElementById('inDuration').value) || 3;
-        if(!timeStr || !title) return;
-        const data = { 
-            timeStr, 
-            timeSec: (parseInt(timeStr.split(':')[0])*60) + parseInt(timeStr.split(':')[1]), 
-            title, 
-            duration, 
-            detail: document.getElementById('inDetail').value 
-        };
-        if(editingKey) db.ref(`savedMemos/${content}/${editingKey}`).update(data);
-        else db.ref(`savedMemos/${content}`).push(data);
-        cancelEdit();
-    }
-
-    function editMemo(key, m) {
-        editingKey = key;
-        document.getElementById('inTime').value = m.timeStr;
-        document.getElementById('inTitle').value = m.title;
-        document.getElementById('inDuration').value = m.duration || 3;
-        document.getElementById('inDetail').value = m.detail || "";
-        document.getElementById('btn-save-main').innerText = "💾 メモを更新";
-        document.getElementById('btn-cancel-edit').style.display = "block";
-        showTab('edit');
-    }
-
-    function cancelEdit() {
-        editingKey = null;
-        document.getElementById('btn-save-main').innerText = "💾 保存";
-        document.getElementById('btn-cancel-edit').style.display = "none";
-        document.getElementById('inTime').value = ""; document.getElementById('inTitle').value = ""; document.getElementById('inDetail').value = "";
-        document.getElementById('inDuration').value = "3";
-        showTab('remote');
-    }
-
-    function loadMemos(id) {
-        db.ref(`savedMemos/${id}`).off();
-        db.ref(`savedMemos/${id}`).on('value', (snap) => {
-            const listDiv = document.getElementById('memoList');
-            listDiv.innerHTML = "";
-            const data = snap.val();
-            if(!data) return;
-            Object.entries(data).sort((a,b) => a[1].timeSec - b[1].timeSec).forEach(([key, m]) => {
-                const item = document.createElement('div');
-                item.className = 'memo-item'; item.setAttribute('data-sec', m.timeSec);
-                item.innerHTML = `
-                    <div class="memo-info" onclick="db.ref('counter/currentTime').set(${m.timeSec})">
-                            <b>[${m.timeStr}]</b> <span>${m.title}</span>
-                            <small>(${m.duration}s) ${m.detail || ''}</small>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn-sm" style="background:#6a5acd;" onclick='copyContent(${JSON.stringify(m).replace(/"/g, '&quot;')})'>コ</button>
-                        <button class="btn-sm" style="background:#20b2aa;" onclick='pasteContent("${key}", "${m.timeStr}", ${m.timeSec})'>貼</button>
-
-                        <button class="btn-sm" onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})'>編</button>
-                        <button class="btn-sm" style="background:#522;" onclick="if(confirm('削除？')) db.ref('savedMemos/${id}/${key}').remove()">消</button>
-                    </div>`;
-                listDiv.appendChild(item);
-            });
-        });
-    }
-
-    let clipboardMemo = null; // コピーした中身を一時保存する変数
-
-    // 1. 中身をコピーする（クリップボードに保存）
-    function copyContent(m) {
-        clipboardMemo = {
-            title: m.title,
-            duration: m.duration,
-            detail: m.detail
-        };
-        alert(`「${m.title}」の内容をコピーしました。他の項目の「貼」で上書きできます。`);
-    }
-
-    // 2. 既存の項目に中身を貼り付ける
-    function pasteContent(key, mTimeStr, mTimeSec) {
-        if (!clipboardMemo) {
-            alert("先にコピー元を選択してください。");
-            return;
-        }
-        
-        const content = document.getElementById('contentSelect').value;
-        const data = {
-            timeStr: mTimeStr,
-            timeSec: mTimeSec,
-            title: clipboardMemo.title,
-            duration: clipboardMemo.duration,
-            detail: clipboardMemo.detail
-        };
-
-        db.ref(`savedMemos/${content}/${key}`).update(data);
-    }
-
-    // テンプレート選択時に秒数もセット
-    function setTmpl(title, dur) {
-        document.getElementById('inTitle').value = title;
-        document.getElementById('inDuration').value = dur;
-    }
-
-    let player;
-    function onYouTubeIframeAPIReady() {
-        // プレイヤーの初期化（最初は空）
-    }
-
-    function loadVideo() {
-        const url = document.getElementById('ytUrl').value;
-        let videoId = "";
-
-        // 様々なURL形式からIDを抽出するロジック
-        if (url.includes('v=')) {
-            videoId = url.split('v=')[1].split('&')[0];
-        } else if (url.includes('youtu.be/')) {
-            videoId = url.split('youtu.be/')[1].split('?')[0];
-        } else if (url.includes('/live/')) {
-            videoId = url.split('/live/')[1].split('?')[0];
-        } else if (url.includes('/embed/')) {
-            videoId = url.split('/embed/')[1].split('?')[0];
-        }
-
-        if (videoId) {
-            if (player) {
-                player.loadVideoById(videoId);
-            } else {
-                player = new YT.Player('player', {
-                    height: '100%',
-                    width: '100%',
-                    videoId: videoId,
-                    playerVars: {
-                        'origin': location.origin // エラー回避のためのオリジン設定
-                    },
-                    events: {
-                        'onStateChange': onPlayerStateChange
-                    }
-                });
-            }
-        } else {
-            alert("有効なYouTube URLを入力してください。");
-        }
-    }
-
-    // 動画の時間とFirebaseを同期させるループ
-    // 同期ループの修正（オフセットを差し引いてFirebaseに送る）
-    function syncTimerWithVideo() {
-        if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING) {
-            const absoluteVideoTime = Math.floor(player.getCurrentTime());
-            const relativeTime = Math.max(0, absoluteVideoTime - videoOffset); // オフセットを引く
-            
-            if (Math.abs(relativeTime - currentSec) > 1) {
-                db.ref('counter/currentTime').set(relativeTime);
-            }
-        }
-        requestAnimationFrame(syncTimerWithVideo);
-    }
-
-    requestAnimationFrame(syncTimerWithVideo);
-
-    function onPlayerStateChange(event) {
-        if (event.data == YT.PlayerState.PLAYING) {
-            // 再生開始時に同期開始
-        }
-    }
-
-    let videoOffset = 0; // 0秒基準とする動画の秒数
-
-    // 秒数を hh:mm:ss または mm:ss に変換する共通関数
-    function formatTime(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        const mStr = String(m).padStart(2, '0');
-        const sStr = String(s).padStart(2, '0');
-        return h > 0 ? `${h}:${mStr}:${sStr}` : `${mStr}:${sStr}`;
-    }
-
-    // ★ここが重要：動画の今の時間を「0秒」に設定する
-    function setVideoStartOffset() {
-        if (!player) return;
-        videoOffset = Math.floor(player.getCurrentTime());
-        alert(`動画の ${formatTime(videoOffset)} を「戦闘開始(0秒)」に設定しました。`);
-        db.ref('counter/currentTime').set(0); // タイマーも0リセット
-    }
-
-    function clearAllMemos() {
-        const id = document.getElementById('contentSelect').value;
-        if(confirm("全削除しますか？")) db.ref(`savedMemos/${id}`).remove();
-    }
+    function clearAllMemos() { if(confirm("消去？")) db.ref(`savedMemos/${document.getElementById('contentSelect').value}`).remove(); }
 </script>
 </body>
 </html>
