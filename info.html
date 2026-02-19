@@ -135,24 +135,28 @@
         const db = firebase.database();
 
         let lastGigId = "";
-        let currentContentId = "default";
-        let globalCurTime = 0;
+        // --- 変数管理 ---
+        let currentContentID = "";
+        let counterRefs = { set: null, pull: null };
 
-        // 1. コンテンツ切り替えの監視
-        db.ref('activeContentID').on('value', (snap) => {
-            currentContentId = snap.val() || "default";
-            db.ref(`savedMemos/${currentContentId}`).off();
-            db.ref(`savedMemos/${currentContentId}`).on('value', (memoSnap) => {
-                updateDisplay(memoSnap.val());
-            });
+        // 1. まず「現在アクティブなコンテンツID」を常に監視する
+        db.ref('activeContentID').on('value', snap => {
+            const newID = snap.val();
+            if (newID && newID !== currentContentID) {
+                currentContentID = newID;
+                // コンテンツが変わったら、そのコンテンツ用のカウンター監視を開始
+                syncInfoCounters(newID);
+            }
         });
 
-        // 2. タイマーの監視
-        db.ref('counter/currentTime').on('value', (snap) => {
-            globalCurTime = snap.val() || 0;
-            const m = Math.floor(globalCurTime/60); const s = globalCurTime%60;
-            document.getElementById('nowTimer').innerText = `TIME: ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-            db.ref(`savedMemos/${currentContentId}`).once('value', (memoSnap) => updateDisplay(memoSnap.val()));
+        // タイマー（currentTime）は全コンテンツ共通なのでそのまま
+        db.ref('counter/currentTime').on('value', snap => {
+            const sec = snap.val() || 0;
+            const el = document.getElementById('remoteTimer') || document.getElementById('infoTimer');
+            if(el) {
+                const m = Math.floor(sec / 60), s = sec % 60;
+                el.innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }
         });
 
         function updateDisplay(savedData) {
@@ -246,6 +250,30 @@
             el.classList.remove('flash-update');
             void el.offsetWidth; // リフロー発生させてアニメーションをリセット
             el.classList.add('flash-update');
+        }
+
+        // 2. カウンターを同期する関数
+        function syncInfoCounters(id) {
+            // 以前のリスナーがあれば解除（二重登録防止）
+            if (counterRefs.set) counterRefs.set.off();
+            if (counterRefs.pull) counterRefs.pull.off();
+
+            // 新しいパス（savedMemos/ID/counters/...）を監視
+            counterRefs.set = db.ref(`savedMemos/${id}/counters/setCount`);
+            counterRefs.set.on('value', s => {
+                const val = s.val() || 1;
+                // info.html内のSET表示要素IDに合わせて書き換えてください
+                const el = document.getElementById('display-setCount') || document.getElementById('infoSet');
+                if(el) el.innerText = val;
+            });
+
+            counterRefs.pull = db.ref(`savedMemos/${id}/counters/pullCount`);
+            counterRefs.pull.on('value', s => {
+                const val = s.val() || 0;
+                // info.html内のPULL表示要素IDに合わせて書き換えてください
+                const el = document.getElementById('display-pullCount') || document.getElementById('infoPull');
+                if(el) el.innerText = val;
+            });
         }
     </script>
 </body>

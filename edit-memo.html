@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Timeline Controller Pro v8.6 (Custom Fixed)</title>
+    <title>Timeline Controller Pro v9.1 (Content Linked Counters)</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -22,8 +22,9 @@
 
         /* クイックアクション */
         .quick-actions { display: flex; gap: 8px; padding: 10px; background: #222; }
-        .btn-main { padding: 15px; font-size: 18px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
-        .btn-record { background: #17a2b8; color: white; flex: 2; }
+        .btn-main { padding: 15px; font-size: 16px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
+        .btn-battle-start { background: #ff8c00; color: white; flex: 1.5; } /* 戦闘開始ボタン */
+        .btn-record { background: #17a2b8; color: white; flex: 1.5; }
         .btn-finalize { background: #dc3545; color: white; flex: 1; }
 
         /* スティッキーヘッダー */
@@ -36,15 +37,15 @@
         /* パレット */
         .palette-area { background: #222; padding: 8px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; }
         .palette-group { margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-        .group-label { font-size: 11px; color: #aaa; width: 40px; font-weight: bold; }
-        .tag-btn { padding: 4px 8px; font-size: 12px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .group-label { font-size: 11px; color: #aaa; width: 45px; font-weight: bold; }
+        .tag-btn { padding: 5px 10px; font-size: 12px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .tag-tnk { border-left: 3px solid #4682b4; }
         .tag-hlr { border-left: 3px solid #2e8b57; }
         .tag-dps { border-left: 3px solid #b22222; }
 
-        /* MOVIEタブ調整：動画表示エリアを適正化 */
+        /* MOVIEタブ調整 */
         .movie-top-area { flex-shrink: 0; background: #000; padding: 5px; text-align: center; }
-        #player-container { width: 100%; max-width: 800px; height: 45vh; aspect-ratio: 16/9; margin: 0 auto; background: #000; }
+        #player-container { width: 100%; max-width: 1000px; height: 45vh; aspect-ratio: 16/9; margin: 0 auto; background: #000; }
 
         /* メモアイテム */
         .memo-item { background: #2a2a2a; padding: 10px; margin-bottom: 6px; border-radius: 8px; display: flex; align-items: center; border-left: 5px solid #ffd700; }
@@ -52,9 +53,9 @@
         .memo-info { flex-grow: 1; cursor: pointer; font-size: 14px; }
         .btn-group { display: flex; gap: 4px; }
         .btn-sm { width: 35px; height: 35px; background: #444; color: white; font-size: 12px; border: none; border-radius: 4px; }
-        .btn-del { background: #dc3545; }
         .btn-copy { background: #6a5acd; }
         .btn-paste { background: #20b2aa; }
+        .btn-del { background: #dc3545; }
         .dur-btn { background: #555; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; border: none; }
 
         .tab-pane { display: none; height: 100%; flex-direction: column; overflow: hidden; }
@@ -71,21 +72,19 @@
         <button id="tabBtn-movie" class="tab-btn" onclick="showTab('movie')">🎥 MOVIE</button>
         <button id="tabBtn-manage" class="tab-btn" onclick="showTab('manage')">MANAGE</button>
     </div>
-
     <div class="counter-bar">
         <div class="counter-item">SET: <button class="counter-btn" onclick="addCounter('setCount', -1)">-</button><span id="display-setCount">1</span><button class="counter-btn" onclick="addCounter('setCount', 1)">+</button></div>
         <div class="counter-item" style="border-left:1px solid #444; padding-left:20px;">PULL: <button class="counter-btn" onclick="addCounter('pullCount', -1)">-</button><span id="display-pullCount">0</span><button class="counter-btn" onclick="addCounter('pullCount', 1)">+</button></div>
     </div>
-
     <div class="quick-actions">
+        <button class="btn-main btn-battle-start" onclick="startBattle()">⚔️ 戦闘開始</button>
         <button class="btn-main btn-record" onclick="setCurrentTimestamp()">🎬 記録</button>
-        <button class="btn-main btn-finalize" onclick="finalizeLastDuration()">⏱️ 終了確定</button>
+        <button class="btn-main btn-finalize" onclick="finalizeLastDuration()">⏱️ 確定</button>
     </div>
     <div id="status-msg" style="font-size:11px; color:#aaa; text-align:center; padding-bottom:5px; height:15px; background:#222;"></div>
 </div>
 
 <div style="flex-grow:1; overflow:hidden; display:flex; flex-direction:column;">
-    
     <div id="pane-remote" class="tab-pane active">
         <div class="sticky-sub-header">
             <div class="timer-display" id="remoteTimer">00:00</div>
@@ -103,6 +102,8 @@
             <div class="palette-area">
                 <div class="palette-group">
                     <button class="tag-btn" style="background:#fff; color:#000; font-weight:bold;" onclick="addTitle('【全体攻撃】')">全体</button>
+                    <button class="tag-btn" style="background:#fff; color:#000; font-weight:bold;" onclick="addTitle('【散開】')">散開</button>
+                    <button class="tag-btn" style="background:#fff; color:#000; font-weight:bold;" onclick="addTitle('【強攻撃】')">強攻撃</button>
                     <button class="tag-btn" style="background:#fff; color:#000; font-weight:bold;" onclick="addTitle('【ステージギミック】')">ステージ</button>
                 </div>
                 <div class="palette-group">
@@ -119,22 +120,26 @@
                 </div>
                 <div class="palette-group">
                     <span class="group-label">種類</span>
-                    <button class="tag-btn" onclick="addTag('強')">強</button>
+                    <button class="tag-btn" onclick="addTag('強攻撃')">強</button>
                     <button class="tag-btn" onclick="addTag('頭割')">頭割</button>
-                    <button class="tag-btn" onclick="addTag('距離')">距離</button>
+                    <button class="tag-btn" onclick="addTag('距離減衰')">距離</button>
                     <button class="tag-btn" onclick="addTag('塔')">塔</button>
-                    <button class="tag-btn" onclick="addTag('扇')">扇</button>
-                    <button class="tag-btn" onclick="addTag('円')">円</button>
-                    <button class="tag-btn" onclick="addTag('直線')">直線</button>
-                    <button class="tag-btn" onclick="addTag('KB')">KB</button>
+                    <button class="tag-btn" onclick="addTag('扇範囲')">扇</button>
+                    <button class="tag-btn" onclick="addTag('円範囲')">円</button>
+                    <button class="tag-btn" onclick="addTag('ドーナツ範囲')">ドーナツ</button>
+                    <button class="tag-btn" onclick="addTag('直線範囲')">直線</button>
+                    <button class="tag-btn" onclick="addTag('ノックバック')">KB</button>
+                    <button class="tag-btn" onclick="addTag('線伸ばし')">線伸</button>
                 </div>
                 <div class="palette-group">
                     <span class="group-label">状態</span>
                     <button class="tag-btn" style="background:#4b0082;" onclick="addTag('DoT')">DoT</button>
-                    <button class="tag-btn" style="background:#4b0082;" onclick="addTag('ダメ増')">ダメ増</button>
+                    <button class="tag-btn" style="background:#4b0082;" onclick="addTag('被ダメ増')">ダメ増</button>
                     <button class="tag-btn" style="background:#4b0082;" onclick="addTag('与減')">与減</button>
                     <button class="tag-btn" style="background:#4b0082;" onclick="addTag('スタン')">スタン</button>
-                    <button class="tag-btn" style="background:#4b0082;" onclick="addTag('宣告')">宣告</button>
+                    <button class="tag-btn" style="background:#4b0082;" onclick="addTag('被回復減')">被回復減</button>
+                    <button class="tag-btn" style="background:#4b0082;" onclick="addTag('与回復減')">与回復減</button>
+                    <button class="tag-btn" style="background:#4b0082;" onclick="addTag('死の宣告')">宣告</button>
                 </div>
             </div>
             <div style="display:flex; gap:5px;">
@@ -169,7 +174,7 @@
 </div>
 
 <script>
-    // --- Firebase初期化 ---
+    // Firebase設定（ご自身のものを使用してください）
     const firebaseConfig = {
         apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
         authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -184,6 +189,50 @@
 
     let currentSec = 0, videoOffset = 0, editingKey = null, lastMemoKey = null, timerInterval = null, player, clipboardMemo = null;
 
+    // --- コンテンツに紐付いたカウンター操作 ---
+    function addCounter(type, val) {
+        const id = document.getElementById('contentSelect').value;
+        if (!id) return;
+        // 保存先を savedMemos/[コンテンツID]/counters/[type] に変更
+        db.ref(`savedMemos/${id}/counters/${type}`).transaction(c => Math.max(0, (c || 0) + val));
+    }
+
+    // カウンターのリスナーを管理する変数
+    let counterRefs = { set: null, pull: null };
+
+    function syncCounters(id) {
+        // 前のリスナーを解除
+        if (counterRefs.set) counterRefs.set.off();
+        if (counterRefs.pull) counterRefs.pull.off();
+
+        // 新しいコンテンツのカウンターを監視
+        counterRefs.set = db.ref(`savedMemos/${id}/counters/setCount`);
+        counterRefs.set.on('value', s => document.getElementById('display-setCount').innerText = s.val() || 1);
+
+        counterRefs.pull = db.ref(`savedMemos/${id}/counters/pullCount`);
+        counterRefs.pull.on('value', s => document.getElementById('display-pullCount').innerText = s.val() || 0);
+    }
+
+    // --- 戦闘開始 ---
+    function startBattle() {
+        // 1. PULLを+1
+        addCounter('pullCount', 1);
+        // 2. タイマーを0にリセット
+        db.ref('counter/currentTime').set(0);
+        // 3. タイマーをスタート
+        controlTimer('start');
+        
+        document.getElementById('status-msg').innerText = "⚔️ 戦闘開始（PULL更新 & タイマー始動）";
+    }
+
+    // タイマーは共有のまま（同期用）
+    db.ref('counter/currentTime').on('value', snap => {
+        currentSec = snap.val() || 0;
+        document.getElementById('remoteTimer').innerText = formatTime(currentSec);
+        if(document.getElementById('autoScroll').checked) autoScrollToList(currentSec);
+    });
+
+    // --- その他基本機能 ---
     function formatTime(sec) {
         const m = Math.floor(sec / 60), s = sec % 60;
         return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
@@ -195,25 +244,56 @@
         document.getElementById('pane-' + tabId).classList.add('active');
     }
 
-    // メモの内容を記憶する
-    function copyContent(m) {
-        clipboardMemo = { 
-            title: m.title, 
-            duration: m.duration, 
-            detail: m.detail || "" 
-        };
-        document.getElementById('status-msg').innerText = `コピー完了: ${m.title}`;
+    function changeContent() {
+        const id = document.getElementById('contentSelect').value;
+        if(id) {
+            db.ref('activeContentID').set(id);
+            loadMemos(id);
+            syncCounters(id); // カウンターの同期先を切り替え
+        }
     }
 
-    // 記憶した内容を別の項目へ上書きする
-    function pasteContent(key) {
-        if (!clipboardMemo) {
-            alert("先に「コ」ボタンでコピーしてください");
-            return;
+    // リスト取得
+    function loadMemos(id) {
+        db.ref(`savedMemos/${id}`).off();
+        // counters 以外のデータをメモとして表示
+        db.ref(`savedMemos/${id}`).on('value', snap => {
+            const allData = snap.val() || {};
+            const listHTML = Object.entries(allData)
+                .filter(([key]) => key !== 'counters') // カウンターデータを除外
+                .sort((a,b) => a[1].timeSec - b[1].timeSec)
+                .map(([key, m]) => `
+                <div class="memo-item" data-sec="${m.timeSec}">
+                    <div class="memo-info" onclick="db.ref('counter/currentTime').set(${m.timeSec})">
+                        <b>[${m.timeStr}]</b> ${m.title} 
+                        <span class="dur-adjust">(${m.duration}s) 
+                            <button class="dur-btn" onclick="adjustDuration('${key}', 1); event.stopPropagation();">+</button>
+                            <button class="dur-btn" onclick="adjustDuration('${key}', -1); event.stopPropagation();">-</button>
+                        </span>
+                        <br><small style="color:#aaa;">${m.detail || ''}</small>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-sm btn-copy" onclick='copyContent(${JSON.stringify(m).replace(/"/g, '&quot;')})'>コ</button>
+                        <button class="btn-sm btn-paste" onclick='pasteContent("${key}")'>貼</button>
+                        <button class="btn-sm" onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})'>編</button>
+                        <button class="btn-sm btn-del" onclick='deleteMemo("${key}")'>削</button>
+                    </div>
+                </div>`).join("");
+            document.getElementById('memoList').innerHTML = listHTML;
+            document.getElementById('memoListRemote').innerHTML = listHTML;
+            document.getElementById('memoListMovie').innerHTML = listHTML;
+        });
+    }
+
+    // --- 既存の関数群 ---
+    function controlTimer(action) {
+        if(action === 'start'){
+            if(timerInterval) return;
+            timerInterval = setInterval(() => db.ref('counter/currentTime').transaction(t => (t||0)+1), 1000);
+        } else {
+            clearInterval(timerInterval); timerInterval = null;
+            if(action === 'reset') db.ref('counter/currentTime').set(0);
         }
-        const id = document.getElementById('contentSelect').value;
-        db.ref(`savedMemos/${id}/${key}`).update(clipboardMemo);
-        document.getElementById('status-msg').innerText = `貼り付けました`;
     }
 
     // 基本データ操作
@@ -263,28 +343,9 @@
 
     function addTitle(title) {
         const area = document.getElementById('inTitle');
-        area.value += (area.value ? " " : "") + `${title}`;
+        // すでに文字がある場合は半角スペースを挟む
+        area.value += (area.value ? " " : "") + title;
         area.focus();
-    }
-
-    // タイマー・カウンター
-    function addCounter(type, val) { db.ref('counter/' + type).transaction(c => Math.max(0, (c || 0) + val)); }
-    db.ref('counter/setCount').on('value', s => document.getElementById('display-setCount').innerText = s.val() || 1);
-    db.ref('counter/pullCount').on('value', s => document.getElementById('display-pullCount').innerText = s.val() || 0);
-    db.ref('counter/currentTime').on('value', snap => {
-        currentSec = snap.val() || 0;
-        document.getElementById('remoteTimer').innerText = formatTime(currentSec);
-        if(document.getElementById('autoScroll').checked) autoScrollToList(currentSec);
-    });
-
-    function controlTimer(action) {
-        if(action === 'start'){
-            if(timerInterval) return;
-            timerInterval = setInterval(() => db.ref('counter/currentTime').transaction(t => (t||0)+1), 1000);
-        } else {
-            clearInterval(timerInterval); timerInterval = null;
-            if(action === 'reset') db.ref('counter/currentTime').set(0);
-        }
     }
 
     function setCurrentTimestamp() {
@@ -307,32 +368,15 @@
         });
     }
 
-    // リスト同期
-    function loadMemos(id) {
-        db.ref(`savedMemos/${id}`).off();
-        db.ref(`savedMemos/${id}`).on('value', snap => {
-            const data = snap.val() || {};
-            const listHTML = Object.entries(data).sort((a,b) => a[1].timeSec - b[1].timeSec).map(([key, m]) => `
-                <div class="memo-item" data-sec="${m.timeSec}">
-                    <div class="memo-info" onclick="db.ref('counter/currentTime').set(${m.timeSec})">
-                        <b>[${m.timeStr}]</b> ${m.title} 
-                        <span class="dur-adjust">(${m.duration}s) 
-                            <button class="dur-btn" onclick="adjustDuration('${key}', 1); event.stopPropagation();">+</button>
-                            <button class="dur-btn" onclick="adjustDuration('${key}', -1); event.stopPropagation();">-</button>
-                        </span>
-                        <br><small style="color:#aaa;">${m.detail || ''}</small>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn-sm btn-copy" onclick='copyContent(${JSON.stringify(m).replace(/"/g, '&quot;')})'>コ</button>
-                        <button class="btn-sm btn-paste" onclick='pasteContent("${key}")'>貼</button>
-                        <button class="btn-sm" onclick='editMemo("${key}", ${JSON.stringify(m).replace(/"/g, '&quot;')})'>編</button>
-                        <button class="btn-sm btn-del" onclick='deleteMemo("${key}")'>削</button>
-                    </div>
-                </div>`).join("");
-            document.getElementById('memoList').innerHTML = listHTML;
-            document.getElementById('memoListRemote').innerHTML = listHTML;
-            document.getElementById('memoListMovie').innerHTML = listHTML;
-        });
+    function copyContent(m) {
+        clipboardMemo = { title: m.title, duration: m.duration, detail: m.detail || "" };
+        document.getElementById('status-msg').innerText = `コピー完了: ${m.title}`;
+    }
+
+    function pasteContent(key) {
+        if (!clipboardMemo) return;
+        db.ref(`savedMemos/${document.getElementById('contentSelect').value}/${key}`).update(clipboardMemo);
+        document.getElementById('status-msg').innerText = `貼り付けました`;
     }
 
     // YouTube
@@ -362,10 +406,7 @@
         const name = prompt("コンテンツ名:");
         if (name) db.ref('contentsList').push(name);
     }
-    function changeContent() {
-        const id = document.getElementById('contentSelect').value;
-        if(id) { db.ref('activeContentID').set(id); loadMemos(id); }
-    }
+
     db.ref('contentsList').on('value', snap => {
         const select = document.getElementById('contentSelect');
         const current = select.value;
