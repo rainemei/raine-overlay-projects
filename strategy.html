@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Strategy Hub - Timeline Slot System</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #121212; color: #eee; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* サイドバー */
+        .sidebar {
+            width: 320px; background: #1e1e1e; border-right: 1px solid #333; padding: 20px;
+            display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0;
+            z-index: 2000; transition: transform 0.3s ease; box-sizing: border-box;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.5);
+        }
+        .sidebar.closed { transform: translateX(-320px); }
+        .toggle-btn {
+            position: absolute; right: -30px; top: 20px; width: 30px; height: 60px;
+            background: #1e1e1e; border: 1px solid #333; border-left: none; color: white;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            border-radius: 0 6px 6px 0;
+        }
+
+        /* メインボード */
+        .main-board {
+            flex-grow: 1; margin-left: 320px; transition: margin-left 0.3s ease;
+            overflow-y: auto; background: #0a0a0a; padding: 0; box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+        .sidebar.closed ~ .main-board { margin-left: 0; }
+
+        /* メモ・付箋の基本スタイル */
+        .sticky-note {
+            background: #252525; border-radius: 4px; padding: 8px 12px; border-left: 5px solid #666;
+            position: relative; font-size: 14px; box-sizing: border-box;
+            min-width: 50px; /* max-widthを削除しました */
+            overflow: hidden; user-select: none; transition: none;
+        }
+        /* ロール別の色設定 */
+        .note-enemy { border-left-color: #ff5722; background: #2d1a15; }
+        .note-mt, .note-st { border-left-color: #2196f3; background: #151d2d; }
+        .note-ph, .note-bh { border-left-color: #4caf50; background: #1a2d1b; }
+        .note-dps { border-left-color: #e91e63; background: #2d151d; }
+        .note-misc { border-left-color: #9e9e9e; background: #252525; }
+
+        .note-title { font-weight: bold; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .note-detail { font-size: 11px; color: #aaa; overflow: hidden; }
+        
+        input, select, textarea { width: 100%; margin-bottom: 12px; background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
+        .add-btn { padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; color: white; background: #444; }
+
+        /* リサイズツマミ */
+        .resizer-bottom { position: absolute; bottom: 0; left: 0; width: 100%; height: 10px; cursor: ns-resize; background: rgba(255,255,255,0.05); z-index: 10; }
+        .resizer-right { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: ew-resize; background: rgba(255,255,255,0.05); z-index: 10; }
+
+        /* 再生線 */
+        #play-line {
+            position: absolute; left: 0; right: 0; height: 2px;
+            background: #ff0000; z-index: 2000; pointer-events: none;
+            box-shadow: 0 0 8px rgba(255,0,0,0.8);
+        }
+        #play-line::after {
+            content: "PLAY"; position: absolute; left: 10px; top: -18px;
+            color: #ff0000; font-size: 10px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar" id="sidebar">
+    <button class="toggle-btn" onclick="toggleSidebar()" id="toggleBtn">◀</button>
+    <h3>Strategy Hub</h3>
+    <select id="contentSelect" onchange="loadTimelineMemos()"></select>
+    
+    <div style="margin-top: 20px;">
+        <label style="font-size: 12px; color: #888;">ターゲット秒数</label>
+        <div style="display: flex; gap: 5px;">
+            <input type="number" id="inMin" placeholder="分" min="0" value="0">
+            <input type="number" id="inSec" placeholder="秒" min="0" max="59" value="0">
+        </div>
+        
+        <label style="font-size: 12px; color: #888;">メモの種類</label>
+        <select id="inRole">
+            <option value="enemy">😈 敵の行動</option>
+            <option value="mt">🛡️ MT (Main Tank)</option>
+            <option value="st">🛡️ ST (Off Tank)</option>
+            <option value="ph">💚 PH (Pure Healer)</option>
+            <option value="bh">💙 BH (Barrier Healer)</option>
+            <option value="dps">⚔️ DPS</option>
+            <option value="misc">📝 雑メモ / 全体指示</option>
+        </select>
+
+        <input type="text" id="inTitle" placeholder="技名・アクション名">
+        <textarea id="inDetail" placeholder="詳細メモ" rows="3"></textarea>
+        
+        <button class="add-btn" id="addBtn" onclick="addNote()" style="background: #388e3c;">＋ メモを追加する</button>
+    </div>
+</div>
+
+<div class="main-board" id="mainBoard">
+    <div id="timelineList"></div>
+</div>
+
+<script>
+    // Firebase設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
+        authDomain: "raine-overlay-projects.firebaseapp.com",
+        databaseURL: "https://raine-overlay-projects-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "raine-overlay-projects",
+        storageBucket: "raine-overlay-projects.firebasestorage.app",
+        messagingSenderId: "116002218964",
+        appId: "1:116002218964:web:616f3503eaebacb4442c41"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function toggleSidebar() {
+        const sb = document.getElementById('sidebar');
+        sb.classList.toggle('closed');
+        document.getElementById('toggleBtn').innerText = sb.classList.contains('closed') ? "▶" : "◀";
+    }
+
+    function addNote() {
+        const id = document.getElementById('contentSelect').value;
+        const min = parseInt(document.getElementById('inMin').value) || 0;
+        const sec = parseInt(document.getElementById('inSec').value) || 0;
+        const totalSec = (min * 60) + sec;
+        const role = document.getElementById('inRole').value;
+        const title = document.getElementById('inTitle').value;
+        if(!title) return;
+
+        db.ref(`savedMemos/${id}`).push({
+            timeSec: totalSec,
+            role: role,
+            title: title,
+            detail: document.getElementById('inDetail').value,
+            duration: 1,
+            width: 200,
+            leftPos: 80
+        });
+
+        document.getElementById('inTitle').value = "";
+        document.getElementById('inDetail').value = "";
+    }
+
+    let currentPlayTime = 0;
+
+    function loadTimelineMemos() {
+        const id = document.getElementById('contentSelect').value;
+        if (!id) return;
+
+        db.ref(`savedMemos/${id}`).on('value', snap => {
+            const listEl = document.getElementById('timelineList');
+            listEl.innerHTML = "";
+            const data = snap.val() || {};
+
+            const timelineWrapper = document.createElement('div');
+            timelineWrapper.id = "timelineWrapper";
+            timelineWrapper.style = "position: relative; width: 100%; height: 30000px; background: #0a0a0a; user-select: none;"; 
+            
+            const playLine = document.createElement('div');
+            playLine.id = "play-line";
+            playLine.style.top = (currentPlayTime * 50) + "px";
+            timelineWrapper.appendChild(playLine);
+
+            for (let i = 0; i < 600; i++) {
+                const row = document.createElement('div');
+                row.style = `position: absolute; top: ${i * 50}px; left: 0; right: 0; height: 50px; border-bottom: 1px solid #1a1a1a; pointer-events: none; display: flex; align-items: center;`;
+                row.innerHTML = `<span style="color: #333; font-size: 12px; padding-left: 10px;">${Math.floor(i/60).toString().padStart(2,'0')}:${(i%60).toString().padStart(2,'0')}</span>`;
+                timelineWrapper.appendChild(row);
+            }
+
+            Object.entries(data).forEach(([key, item]) => {
+                const note = document.createElement('div');
+                note.className = `sticky-note note-${item.role}`;
+                
+                const startTop = (item.timeSec || 0) * 50;
+                const startLeft = (item.leftPos !== undefined) ? item.leftPos : 80;
+                const noteWidth = (item.width !== undefined) ? item.width : 200;
+                const height = (item.duration || 1) * 50 - 4;
+
+                note.style = `position: absolute; top: ${startTop}px; left: ${startLeft}px; width: ${noteWidth}px; height: ${height}px; z-index: 100; cursor: grab;`;
+
+                note.innerHTML = `
+                    <div class="note-title">${item.title}</div>
+                    <div class="note-detail">${item.detail || ''}</div>
+                    <div class="resizer-bottom"></div>
+                    <div class="resizer-right"></div>
+                    <button style="position:absolute; top:2px; right:5px; background:rgba(0,0,0,0.5); border:none; color:white; cursor:pointer; z-index:20; border-radius:3px;" onclick="deleteNote('${key}')">×</button>
+                `;
+
+                note.ondblclick = () => {
+                    document.getElementById('inMin').value = Math.floor(item.timeSec / 60);
+                    document.getElementById('inSec').value = item.timeSec % 60;
+                    document.getElementById('inRole').value = item.role;
+                    document.getElementById('inTitle').value = item.title;
+                    document.getElementById('inDetail').value = item.detail || "";
+                    deleteNote(key, false); 
+                };
+
+                note.onmousedown = function(e) {
+                    const isResizingBottom = e.target.classList.contains('resizer-bottom');
+                    const isResizingRight = e.target.classList.contains('resizer-right');
+                    if (e.target.tagName === 'BUTTON') return;
+
+                    e.preventDefault();
+                    e.stopPropagation(); // 親要素へのイベント伝播を阻止
+                    
+                    const style = window.getComputedStyle(note);
+                    const startWidth = parseFloat(style.width);
+                    const startHeight = parseFloat(style.height);
+                    const startX = e.pageX;
+                    const startY = e.pageY;
+                    const startTopPos = note.offsetTop;
+                    const startLeftPos = note.offsetLeft;
+
+                    function onMouseMove(event) {
+                        if (isResizingBottom) {
+                            // 縦のリサイズ
+                            const deltaY = event.pageY - startY;
+                            note.style.height = Math.max(46, startHeight + deltaY) + 'px';
+                        } else if (isResizingRight) {
+                            // 横のリサイズ（ここをシンプルにしました）
+                            const deltaX = event.pageX - startX;
+                            const newWidth = startWidth + deltaX;
+                            // 最小幅は50px、最大は1200px程度に制限して安全策
+                            note.style.width = Math.min(1200, Math.max(50, newWidth)) + 'px';
+                        } else {
+                            // 通常の移動
+                            const deltaX = event.pageX - startX;
+                            const deltaY = event.pageY - startY;
+                            note.style.top = Math.max(0, Math.round((startTopPos + deltaY) / 50) * 50) + 'px';
+                            note.style.left = Math.max(80, Math.round((startLeftPos + deltaX) / 20) * 20) + 'px'; 
+                        }
+                    }
+
+                    function onMouseUp() {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+
+                        // 保存時に数値を綺麗に整える（スナップ）
+                        const finalSec = Math.round(parseInt(note.style.top) / 50);
+                        const finalSpan = Math.round((parseFloat(note.style.height) + 4) / 50);
+                        // 横幅は50px単位でスナップ
+                        const finalWidth = Math.round(parseFloat(note.style.width) / 50) * 50;
+                        const finalLeft = Math.round(parseInt(note.style.left) / 20) * 20;
+
+                        // 見た目もスナップ後の数値に合わせる
+                        note.style.width = finalWidth + 'px';
+                        note.style.height = (finalSpan * 50 - 4) + 'px';
+
+                        // 保存用の timeStr を作成
+                        const finalTimeStr = formatTime(finalSec);
+
+                        db.ref(`savedMemos/${id}/${key}`).update({ 
+                            timeSec: finalSec,
+                            timeStr: finalTimeStr, // これを追加！
+                            duration: finalSpan,
+                            width: finalWidth,
+                            leftPos: finalLeft
+                        });
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                };
+
+
+                timelineWrapper.appendChild(note);
+            });
+
+            timelineWrapper.onclick = (e) => {
+                if(e.target.id === "timelineWrapper") {
+                    const rect = timelineWrapper.getBoundingClientRect();
+                    const clickY = e.pageY - rect.top;
+                    currentPlayTime = Math.floor(clickY / 50);
+                    document.getElementById('play-line').style.top = (currentPlayTime * 50) + "px";
+                }
+            };
+            listEl.appendChild(timelineWrapper);
+        });
+    }
+
+    // deleteNote関数を修正
+    function deleteNote(key, confirmRequired = true) {
+        const id = document.getElementById('contentSelect').value;
+        if(!confirmRequired || confirm("削除しますか？")) {
+            db.ref(`savedMemos/${id}/${key}`).remove();
+        }
+    }
+
+    db.ref('contentsList').on('value', snap => {
+        const select = document.getElementById('contentSelect');
+        const current = select.value;
+        select.innerHTML = "";
+        Object.entries(snap.val() || {}).forEach(([id, name]) => {
+            const opt = document.createElement('option'); opt.value = id; opt.innerText = name;
+            select.appendChild(opt);
+        });
+        if(current) select.value = current;
+        loadTimelineMemos();
+    });
+
+    // --- 秒数を "00:00" 形式に変換する関数をどこかに定義しておく ---
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+</script>
+</body>
+</html>
