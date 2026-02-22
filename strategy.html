@@ -51,21 +51,57 @@
         #floatPopup { position: absolute; background: #252525; border: 1px solid #444; padding: 15px; border-radius: 8px; z-index: 3000; display: none; width: 250px; flex-direction: column; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .resizer { width: 10px; height: 10px; position: absolute; right: 0; bottom: 0; cursor: nwse-resize; }
         .btn-delete { position: absolute; top: 2px; right: 2px; background: none; border: none; color: white; opacity: 0.3; cursor: pointer; }
+
+        /* サイドバーが閉じた時の状態 */
+        .sidebar-collapsed #sidebar {
+            margin-left: -300px;
+        }
+
+        /* リスト表示時の見切れ対策（ホバーで展開） */
+        .view-list .sticky-note {
+            transition: height 0.2s ease, z-index 0s, box-shadow 0.2s;
+            overflow: hidden;
+        }
+
+        .view-list .sticky-note:hover {
+            height: auto !important; /* 内容に合わせて自動拡張 */
+            min-height: 70px;
+            z-index: 999;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+            overflow: visible;
+        }
+
+        /* 通常時は詳細メモを3行に制限して末尾を省略 */
+        .view-list .sticky-note div:nth-child(3) {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ホバー時は全表示 */
+        .view-list .sticky-note:hover div:nth-child(3) {
+            display: block;
+            -webkit-line-clamp: unset;
+        }
+
     </style>
 </head>
 <body>
 
-<div class="sidebar">
-    <h2>Strategy Hub</h2>
-    
-    <div>
-        <label>コンテンツ選択</label>
-        <select id="contentSelect" onchange="loadTimelineMemos()"></select>
-    </div>
+<button id="sidebarToggle" onclick="toggleSidebar()" style="position:fixed; left:10px; top:10px; z-index:1100; background:#333; color:white; border:1px solid #555; border-radius:4px; padding:5px 10px; cursor:pointer; font-size:12px; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">☰ 画面を広く使う</button>
 
-    <div class="section-title">新規作成時のデフォルト</div>
-    <div>
-        <select id="sidebarRole">
+<div class="app-wrapper" id="appWrapper" style="display: flex; height: 100vh; width: 100vw; overflow: hidden; position: fixed; top: 0; left: 0;">
+    
+    <div class="sidebar" id="sidebar" style="width: 300px; min-width: 300px; background: #1a1a1a; padding: 20px; border-right: 1px solid #333; overflow-y: auto; transition: margin-left 0.3s ease; flex-shrink: 0;">
+        <h2 style="margin-top: 40px; border-left: 4px solid #4caf50; padding-left: 10px;">Strategy Hub</h2>
+        
+        <div class="section-title">コンテンツ</div>
+        <select id="contentSelect" onchange="loadTimelineMemos()" style="width:100%; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;"></select>
+
+        <div class="section-title">新規作成時のデフォルト</div>
+        <select id="sidebarRole" style="width:100%; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
             <option value="enemy">😈 敵の行動</option>
             <option value="mt">🛡️ MT</option>
             <option value="st">🛡️ ST</option>
@@ -74,63 +110,61 @@
             <option value="dps">⚔️ DPS</option>
             <option value="misc">📝 雑メモ</option>
         </select>
-        <p style="font-size:10px; color:#666; margin:4px 0 0 0;">※ダブルクリック作成時に適用されます</p>
-    </div>
+        <p style="font-size:10px; color:#888; margin:4px 0 0 0;">※ダブルクリック作成時に適用</p>
 
-    <div class="section-title">再生コントロール</div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
-        <button onclick="startPlayback()" style="background:#1565c0; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">START</button>
-        <button onclick="stopPlayback()" style="background:#c62828; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">STOP</button>
-        <button onclick="resetPlayback()" style="background:#444; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">RESET</button>
-    </div>
-
-    <div class="section-title">表示フィルタ</div>
-    <div class="filter-group" id="filterGroup">
-        <label class="filter-item"><input type="checkbox" checked value="enemy" onchange="applyFilter()"> 敵行動</label>
-        <label class="filter-item"><input type="checkbox" checked value="mt" onchange="applyFilter()"> MT</label>
-        <label class="filter-item"><input type="checkbox" checked value="st" onchange="applyFilter()"> ST</label>
-        <label class="filter-item"><input type="checkbox" checked value="ph" onchange="applyFilter()"> PH</label>
-        <label class="filter-item"><input type="checkbox" checked value="bh" onchange="applyFilter()"> BH</label>
-        <label class="filter-item"><input type="checkbox" checked value="dps" onchange="applyFilter()"> DPS</label>
-        <label class="filter-item"><input type="checkbox" checked value="misc" onchange="applyFilter()"> 雑メモ</label>
-    </div>
-
-    <div class="section-title">表示設定</div>
-    <div style="display:flex; gap:5px;">
-        <button id="btnT" onclick="setViewMode('timeline')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; border-radius:4px;">TIME</button>
-        <button id="btnL" onclick="setViewMode('list')" style="flex:1; background:#333; color:white; border:none; padding:6px; border-radius:4px;">LIST</button>
-    </div>
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-size:11px;">ズーム:</span>
-        <div>
-            <button onclick="changeZoom(-10)" style="padding:2px 8px;">➖</button>
-            <button onclick="changeZoom(10)" style="padding:2px 8px;">➕</button>
+        <div class="section-title">再生コントロール</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+            <button onclick="startPlayback()" style="background:#1565c0; color:white; border:none; padding:10px 5px; border-radius:4px; cursor:pointer; font-weight: bold;">START</button>
+            <button onclick="stopPlayback()" style="background:#c62828; color:white; border:none; padding:10px 5px; border-radius:4px; cursor:pointer; font-weight: bold;">STOP</button>
+            <button onclick="resetPlayback()" style="background:#444; color:white; border:none; padding:10px 5px; border-radius:4px; cursor:pointer; font-weight: bold;">RESET</button>
         </div>
+
+        <div class="section-title">表示フィルタ</div>
+        <div class="filter-group" id="filterGroup" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <label class="filter-item"><input type="checkbox" checked value="enemy" onchange="applyFilter()"> 敵行動</label>
+            <label class="filter-item"><input type="checkbox" checked value="mt" onchange="applyFilter()"> MT</label>
+            <label class="filter-item"><input type="checkbox" checked value="st" onchange="applyFilter()"> ST</label>
+            <label class="filter-item"><input type="checkbox" checked value="ph" onchange="applyFilter()"> PH</label>
+            <label class="filter-item"><input type="checkbox" checked value="bh" onchange="applyFilter()"> BH</label>
+            <label class="filter-item"><input type="checkbox" checked value="dps" onchange="applyFilter()"> DPS</label>
+            <label class="filter-item"><input type="checkbox" checked value="misc" onchange="applyFilter()"> 雑メモ</label>
+        </div>
+
+        <div class="section-title">表示設定</div>
+        <div style="display:flex; gap:5px; margin-bottom: 10px;">
+            <button id="btnT" onclick="setViewMode('timeline')" style="flex:1; background:#4caf50; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">TIME</button>
+            <button id="btnL" onclick="setViewMode('list')" style="flex:1; background:#333; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">LIST</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px;">ズーム:</span>
+            <div>
+                <button onclick="changeZoom(-10)" style="padding:2px 10px; background:#444; color:white; border:none; border-radius:4px;">➖</button>
+                <button onclick="changeZoom(10)" style="padding:2px 10px; background:#444; color:white; border:none; border-radius:4px;">➕</button>
+            </div>
+        </div>
+
+        <div class="section-title">データ</div>
+        <button onclick="exportJSON()" style="width: 100%; background:#333; color:white; border:1px solid #555; padding:10px; border-radius:4px; cursor:pointer; font-size:11px;">💾 バックアップを保存</button>
     </div>
 
-    <div class="section-title">データ</div>
-    <button onclick="exportJSON()" style="background:#333; color:white; border:1px solid #555; padding:8px; border-radius:4px; cursor:pointer; font-size:11px;">💾 バックアップを保存</button>
-    <div style="font-size:10px; color:#666; margin-top:5px;">※ JSON形式でダウンロードされます</div>
-</div>
-
-
-<div class="main-board" id="mainBoard" ondblclick="handleBoardDblClick(event)">
-    <div id="play-line"></div>
-    <div id="timelineList"></div>
-    
-    <div id="floatPopup">
-        <h4 id="popupTitle" style="margin:0; font-size:13px; color:#4caf50;">編集</h4>
-        <select id="popRoleInput">
-            <option value="enemy">😈 敵の行動</option>
-            <option value="mt">🛡️ MT</option><option value="st">🛡️ ST</option>
-            <option value="ph">⚖️ PH</option><option value="bh">⚖️ BH</option>
-            <option value="dps">⚔️ DPS</option><option value="misc">📝 雑メモ</option>
-        </select>
-        <input type="text" id="popTitleInput" placeholder="技名">
-        <textarea id="popDetailInput" rows="3" placeholder="詳細"></textarea>
-        <div style="display:flex; gap:5px;">
-            <button onclick="savePopup()" style="flex:1; background:#4caf50; color:white; border:none; padding:8px; border-radius:4px;">保存</button>
-            <button onclick="closePopup()" style="flex:1; background:#444; color:white; border:none; padding:8px; border-radius:4px;">閉じる</button>
+    <div class="main-board" id="mainBoard" ondblclick="handleBoardDblClick(event)" style="flex-grow: 1; background: #111; position: relative; overflow-y: auto; overflow-x: hidden; transition: all 0.3s ease;">
+        <div id="play-line"></div>
+        <div id="timelineList"></div>
+        
+        <div id="floatPopup" style="display:none; position:absolute; z-index:2000; background:#222; padding:15px; border-radius:8px; border:1px solid #444; width:260px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h4 id="popupTitle" style="margin:0 0 10px 0; font-size:14px; color:#4caf50;">編集</h4>
+            <select id="popRoleInput" style="width:100%; margin-bottom: 10px; padding:5px; background:#333; color:white; border:1px solid #555;">
+                <option value="enemy">😈 敵の行動</option>
+                <option value="mt">🛡️ MT</option><option value="st">🛡️ ST</option>
+                <option value="ph">⚖️ PH</option><option value="bh">⚖️ BH</option>
+                <option value="dps">⚔️ DPS</option><option value="misc">📝 雑メモ</option>
+            </select>
+            <input type="text" id="popTitleInput" placeholder="技名" style="width:100%; margin-bottom: 10px; padding:8px; background:#111; color:white; border:1px solid #444; box-sizing: border-box;">
+            <textarea id="popDetailInput" rows="4" placeholder="詳細メモ" style="width:100%; margin-bottom: 10px; padding:8px; background:#111; color:white; border:1px solid #444; box-sizing: border-box; resize: vertical;"></textarea>
+            <div style="display:flex; gap:5px;">
+                <button onclick="savePopup()" style="flex:1; background:#4caf50; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer; font-weight:bold;">保存</button>
+                <button onclick="closePopup()" style="flex:1; background:#444; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">閉じる</button>
+            </div>
         </div>
     </div>
 </div>
@@ -158,11 +192,33 @@
         return `${m}:${sec.toString().padStart(2, '0')}`;
     }
 
+    function toggleSidebar() {
+        const wrapper = document.getElementById('appWrapper');
+        const btn = document.getElementById('sidebarToggle');
+        wrapper.classList.toggle('sidebar-collapsed');
+        
+        if (wrapper.classList.contains('sidebar-collapsed')) {
+            btn.innerText = "📁 メニュー表示";
+        } else {
+            btn.innerText = "☰ 画面を広く使う";
+        }
+    }
+
     function setViewMode(mode) {
         viewMode = mode;
-        document.getElementById('mainBoard').className = 'main-board ' + (mode === 'list' ? 'list-mode' : '');
-        document.getElementById('btnT').style.background = (mode === 'timeline' ? '#4caf50' : '#333');
-        document.getElementById('btnL').style.background = (mode === 'list' ? '#4caf50' : '#333');
+        const board = document.getElementById('mainBoard');
+        const btnT = document.getElementById('btnT');
+        const btnL = document.getElementById('btnL');
+
+        if (mode === 'list') {
+            board.classList.add('view-list');
+            btnL.style.background = "#4caf50";
+            btnT.style.background = "#333";
+        } else {
+            board.classList.remove('view-list');
+            btnT.style.background = "#4caf50";
+            btnL.style.background = "#333";
+        }
         loadTimelineMemos();
     }
 
