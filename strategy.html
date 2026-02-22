@@ -2,110 +2,140 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Strategy Hub - Timeline Slot System</title>
+    <title>Strategy Hub - Advanced Edition</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
     <style>
+        :root { --row-height: 60px; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #121212; color: #eee; margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
         /* サイドバー */
-        .sidebar {
-            width: 320px; background: #1e1e1e; border-right: 1px solid #333; padding: 20px;
-            display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0;
-            z-index: 2000; transition: transform 0.3s ease; box-sizing: border-box;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.5);
-        }
-        .sidebar.closed { transform: translateX(-320px); }
-        .toggle-btn {
-            position: absolute; right: -30px; top: 20px; width: 30px; height: 60px;
-            background: #1e1e1e; border: 1px solid #333; border-left: none; color: white;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            border-radius: 0 6px 6px 0;
-        }
+        .sidebar { width: 300px; background: #1a1a1a; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 12px; z-index: 2000; box-sizing: border-box; overflow-y: auto; }
+        .sidebar h2 { margin: 0; font-size: 18px; color: #fff; border-left: 4px solid #4caf50; padding-left: 10px; }
+        label { font-size: 11px; color: #888; display: block; margin-bottom: 4px; }
+        input, select, textarea { background: #262626; border: 1px solid #3d3d3d; color: white; padding: 8px; border-radius: 4px; font-size: 13px; width: 100%; box-sizing: border-box; }
+        
+        .section-title { font-size: 12px; font-weight: bold; color: #4caf50; margin-top: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        
+        /* フィルタチェックボックス */
+        .filter-group { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .filter-item { display: flex; align-items: center; gap: 5px; font-size: 11px; cursor: pointer; }
+        .filter-item input { width: auto; cursor: pointer; }
 
         /* メインボード */
-        .main-board {
-            flex-grow: 1; margin-left: 320px; transition: margin-left 0.3s ease;
-            overflow-y: auto; background: #0a0a0a; padding: 0; box-sizing: border-box;
-            scroll-behavior: smooth;
-        }
-        .sidebar.closed ~ .main-board { margin-left: 0; }
+        .main-board { flex-grow: 1; overflow-y: auto; background: #0d0d0d; position: relative; }
+        #timelineWrapper { position: relative; width: 100%; min-height: 100%; }
+        .time-row { position: absolute; left: 0; right: 0; height: var(--row-height); border-bottom: 1px solid #1a1a1a; pointer-events: none; color: #444; font-size: 11px; padding-left: 5px; }
+        #play-line { position: absolute; left: 0; right: 0; height: 2px; background: #ff0000; z-index: 500; pointer-events: none; box-shadow: 0 0 10px rgba(255,0,0,0.8); }
 
-        /* メモ・付箋の基本スタイル */
-        .sticky-note {
-            background: #252525; border-radius: 4px; padding: 8px 12px; border-left: 5px solid #666;
-            position: relative; font-size: 14px; box-sizing: border-box;
-            min-width: 50px; /* max-widthを削除しました */
-            overflow: hidden; user-select: none; transition: none;
+        /* 付箋 */
+        .sticky-note { 
+            position: absolute; background: #2a2a2a; border-radius: 4px; padding: 6px; border-left: 5px solid #666; 
+            font-size: 12px; box-sizing: border-box; z-index: 100; color: white; cursor: grab; overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4); user-select: none;
         }
-        /* ロール別の色設定 */
-        .note-enemy { border-left-color: #ff5722; background: #2d1a15; }
-        .note-mt, .note-st { border-left-color: #2196f3; background: #151d2d; }
-        .note-ph, .note-bh { border-left-color: #4caf50; background: #1a2d1b; }
-        .note-dps { border-left-color: #e91e63; background: #2d151d; }
-        .note-misc { border-left-color: #9e9e9e; background: #252525; }
+        .sticky-note.active { filter: brightness(1.3); box-shadow: 0 0 15px rgba(255, 255, 255, 0.2); z-index: 151; border-left-width: 8px; }
+        .note-enemy { border-left-color: #ff5722; }
+        .note-mt, .note-st { border-left-color: #2196f3; }
+        .note-ph, .note-bh { border-left-color: #4caf50; }
+        .note-dps { border-left-color: #e91e63; }
+        .note-misc { border-left-color: #9e9e9e; }
 
-        .note-title { font-weight: bold; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .note-detail { font-size: 11px; color: #aaa; overflow: hidden; }
-        
-        input, select, textarea { width: 100%; margin-bottom: 12px; background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
-        .add-btn { padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; color: white; background: #444; }
+        /* リストモード（横並び維持・縦詰め） */
+        .list-mode .time-row, .list-mode #play-line { display: none; }
+        .list-mode #timelineWrapper { padding: 20px 0; height: auto !important; }
+        /* フィルタ非表示 */
+        .hidden { display: none !important; }
 
-        /* リサイズツマミ */
-        .resizer-bottom { position: absolute; bottom: 0; left: 0; width: 100%; height: 10px; cursor: ns-resize; background: rgba(255,255,255,0.05); z-index: 10; }
-        .resizer-right { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: ew-resize; background: rgba(255,255,255,0.05); z-index: 10; }
-
-        /* 再生線 */
-        #play-line {
-            position: absolute; left: 0; right: 0; height: 2px;
-            background: #ff0000; z-index: 2000; pointer-events: none;
-            box-shadow: 0 0 8px rgba(255,0,0,0.8);
-        }
-        #play-line::after {
-            content: "PLAY"; position: absolute; left: 10px; top: -18px;
-            color: #ff0000; font-size: 10px; font-weight: bold;
-        }
+        /* ポップアップ */
+        #floatPopup { position: absolute; background: #252525; border: 1px solid #444; padding: 15px; border-radius: 8px; z-index: 3000; display: none; width: 250px; flex-direction: column; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .resizer { width: 10px; height: 10px; position: absolute; right: 0; bottom: 0; cursor: nwse-resize; }
+        .btn-delete { position: absolute; top: 2px; right: 2px; background: none; border: none; color: white; opacity: 0.3; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="sidebar" id="sidebar">
-    <button class="toggle-btn" onclick="toggleSidebar()" id="toggleBtn">◀</button>
-    <h3>Strategy Hub</h3>
-    <select id="contentSelect" onchange="loadTimelineMemos()"></select>
+<div class="sidebar">
+    <h2>Strategy Hub</h2>
     
-    <div style="margin-top: 20px;">
-        <label style="font-size: 12px; color: #888;">ターゲット秒数</label>
-        <div style="display: flex; gap: 5px;">
-            <input type="number" id="inMin" placeholder="分" min="0" value="0">
-            <input type="number" id="inSec" placeholder="秒" min="0" max="59" value="0">
-        </div>
-        
-        <label style="font-size: 12px; color: #888;">メモの種類</label>
-        <select id="inRole">
-            <option value="enemy">😈 敵の行動</option>
-            <option value="mt">🛡️ MT (Main Tank)</option>
-            <option value="st">🛡️ ST (Off Tank)</option>
-            <option value="ph">💚 PH (Pure Healer)</option>
-            <option value="bh">💙 BH (Barrier Healer)</option>
-            <option value="dps">⚔️ DPS</option>
-            <option value="misc">📝 雑メモ / 全体指示</option>
-        </select>
+    <div>
+        <label>コンテンツ選択</label>
+        <select id="contentSelect" onchange="loadTimelineMemos()"></select>
+    </div>
 
-        <input type="text" id="inTitle" placeholder="技名・アクション名">
-        <textarea id="inDetail" placeholder="詳細メモ" rows="3"></textarea>
-        
-        <button class="add-btn" id="addBtn" onclick="addNote()" style="background: #388e3c;">＋ メモを追加する</button>
+    <div class="section-title">新規作成時のデフォルト</div>
+    <div>
+        <select id="sidebarRole">
+            <option value="enemy">😈 敵の行動</option>
+            <option value="mt">🛡️ MT</option>
+            <option value="st">🛡️ ST</option>
+            <option value="ph">⚖️ PH</option>
+            <option value="bh">⚖️ BH</option>
+            <option value="dps">⚔️ DPS</option>
+            <option value="misc">📝 雑メモ</option>
+        </select>
+        <p style="font-size:10px; color:#666; margin:4px 0 0 0;">※ダブルクリック作成時に適用されます</p>
+    </div>
+
+    <div class="section-title">再生コントロール</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+        <button onclick="startPlayback()" style="background:#1565c0; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">START</button>
+        <button onclick="stopPlayback()" style="background:#c62828; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">STOP</button>
+        <button onclick="resetPlayback()" style="background:#444; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">RESET</button>
+    </div>
+
+    <div class="section-title">表示フィルタ</div>
+    <div class="filter-group" id="filterGroup">
+        <label class="filter-item"><input type="checkbox" checked value="enemy" onchange="applyFilter()"> 敵行動</label>
+        <label class="filter-item"><input type="checkbox" checked value="mt" onchange="applyFilter()"> MT</label>
+        <label class="filter-item"><input type="checkbox" checked value="st" onchange="applyFilter()"> ST</label>
+        <label class="filter-item"><input type="checkbox" checked value="ph" onchange="applyFilter()"> PH</label>
+        <label class="filter-item"><input type="checkbox" checked value="bh" onchange="applyFilter()"> BH</label>
+        <label class="filter-item"><input type="checkbox" checked value="dps" onchange="applyFilter()"> DPS</label>
+        <label class="filter-item"><input type="checkbox" checked value="misc" onchange="applyFilter()"> 雑メモ</label>
+    </div>
+
+    <div class="section-title">表示設定</div>
+    <div style="display:flex; gap:5px;">
+        <button id="btnT" onclick="setViewMode('timeline')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; border-radius:4px;">TIME</button>
+        <button id="btnL" onclick="setViewMode('list')" style="flex:1; background:#333; color:white; border:none; padding:6px; border-radius:4px;">LIST</button>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:11px;">ズーム:</span>
+        <div>
+            <button onclick="changeZoom(-10)" style="padding:2px 8px;">➖</button>
+            <button onclick="changeZoom(10)" style="padding:2px 8px;">➕</button>
+        </div>
+    </div>
+
+    <div class="section-title">データ</div>
+    <button onclick="exportJSON()" style="background:#333; color:white; border:1px solid #555; padding:8px; border-radius:4px; cursor:pointer; font-size:11px;">💾 バックアップを保存</button>
+    <div style="font-size:10px; color:#666; margin-top:5px;">※ JSON形式でダウンロードされます</div>
+</div>
+
+
+<div class="main-board" id="mainBoard" ondblclick="handleBoardDblClick(event)">
+    <div id="play-line"></div>
+    <div id="timelineList"></div>
+    
+    <div id="floatPopup">
+        <h4 id="popupTitle" style="margin:0; font-size:13px; color:#4caf50;">編集</h4>
+        <select id="popRoleInput">
+            <option value="enemy">😈 敵の行動</option>
+            <option value="mt">🛡️ MT</option><option value="st">🛡️ ST</option>
+            <option value="ph">⚖️ PH</option><option value="bh">⚖️ BH</option>
+            <option value="dps">⚔️ DPS</option><option value="misc">📝 雑メモ</option>
+        </select>
+        <input type="text" id="popTitleInput" placeholder="技名">
+        <textarea id="popDetailInput" rows="3" placeholder="詳細"></textarea>
+        <div style="display:flex; gap:5px;">
+            <button onclick="savePopup()" style="flex:1; background:#4caf50; color:white; border:none; padding:8px; border-radius:4px;">保存</button>
+            <button onclick="closePopup()" style="flex:1; background:#444; color:white; border:none; padding:8px; border-radius:4px;">閉じる</button>
+        </div>
     </div>
 </div>
 
-<div class="main-board" id="mainBoard">
-    <div id="timelineList"></div>
-</div>
-
 <script>
-    // Firebase設定
     const firebaseConfig = {
         apiKey: "AIzaSyCG9-jWeEglWYEL1eYymQSI5XZjmv39-kk",
         authDomain: "raine-overlay-projects.firebaseapp.com",
@@ -118,36 +148,127 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function toggleSidebar() {
-        const sb = document.getElementById('sidebar');
-        sb.classList.toggle('closed');
-        document.getElementById('toggleBtn').innerText = sb.classList.contains('closed') ? "▶" : "◀";
+    let currentTime = 0, isPlaying = false, startTime = 0, elapsedTimeAtPause = 0;
+    let rowHeight = 60, viewMode = 'timeline';
+    let currentEditingKey = null, tempTargetSec = 0;
+
+    function formatTime(s) {
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return `${m}:${sec.toString().padStart(2, '0')}`;
     }
 
-    function addNote() {
-        const id = document.getElementById('contentSelect').value;
-        const min = parseInt(document.getElementById('inMin').value) || 0;
-        const sec = parseInt(document.getElementById('inSec').value) || 0;
-        const totalSec = (min * 60) + sec;
-        const role = document.getElementById('inRole').value;
-        const title = document.getElementById('inTitle').value;
-        if(!title) return;
+    function setViewMode(mode) {
+        viewMode = mode;
+        document.getElementById('mainBoard').className = 'main-board ' + (mode === 'list' ? 'list-mode' : '');
+        document.getElementById('btnT').style.background = (mode === 'timeline' ? '#4caf50' : '#333');
+        document.getElementById('btnL').style.background = (mode === 'list' ? '#4caf50' : '#333');
+        loadTimelineMemos();
+    }
 
-        db.ref(`savedMemos/${id}`).push({
-            timeSec: totalSec,
-            role: role,
-            title: title,
-            detail: document.getElementById('inDetail').value,
-            duration: 1,
-            width: 200,
-            leftPos: 80
+    // 表示フィルタの実行関数
+    function applyFilter() {
+        const checks = document.querySelectorAll('#filterGroup input');
+        const activeRoles = Array.from(checks).filter(c => c.checked).map(c => c.value);
+        
+        document.querySelectorAll('.sticky-note').forEach(note => {
+            // ロールが未設定（undefinedや空）の場合は "enemy" として扱う救済処置
+            const role = note.getAttribute('data-role') || "enemy";
+            if (activeRoles.includes(role)) {
+                note.classList.remove('hidden');
+            } else {
+                note.classList.add('hidden');
+            }
         });
-
-        document.getElementById('inTitle').value = "";
-        document.getElementById('inDetail').value = "";
     }
 
-    let currentPlayTime = 0;
+    function exportJSON() {
+        const id = document.getElementById('contentSelect').value;
+        db.ref(`savedMemos/${id}`).once('value', snap => {
+            const data = snap.val();
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `StrategyHub_Backup_${id}.json`;
+            a.click();
+        });
+    }
+
+    function changeZoom(delta) {
+        rowHeight = Math.min(200, Math.max(30, rowHeight + delta));
+        document.documentElement.style.setProperty('--row-height', rowHeight + 'px');
+        loadTimelineMemos();
+    }
+
+    function handleBoardDblClick(e) {
+        if (viewMode === 'list' || e.target.id !== 'timelineWrapper') return;
+        const rect = e.target.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        tempTargetSec = y / rowHeight;
+        showPopup(null, e.pageX - 310, e.pageY - 20, "新規作成 (" + formatTime(tempTargetSec) + ")");
+    }
+
+    function showPopup(key, x, y, titleText) {
+        currentEditingKey = key;
+        const pop = document.getElementById('floatPopup');
+        document.getElementById('popupTitle').innerText = titleText;
+        if (key) {
+            db.ref(`savedMemos/${document.getElementById('contentSelect').value}/${key}`).once('value', snap => {
+                const data = snap.val();
+                document.getElementById('popTitleInput').value = data.title || "";
+                document.getElementById('popDetailInput').value = data.detail || "";
+                document.getElementById('popRoleInput').value = data.role || "enemy";
+            });
+        } else {
+            document.getElementById('popTitleInput').value = ""; document.getElementById('popDetailInput').value = "";
+            document.getElementById('popRoleInput').value = document.getElementById('sidebarRole').value;
+        }
+        pop.style.display = 'flex';
+        pop.style.left = Math.max(10, x) + 'px';
+        pop.style.top = (y + document.getElementById('mainBoard').scrollTop) - 50 + 'px';
+    }
+
+    function savePopup() {
+        const id = document.getElementById('contentSelect').value;
+        const updateData = {
+            title: document.getElementById('popTitleInput').value || "(無題)",
+            detail: document.getElementById('popDetailInput').value,
+            role: document.getElementById('popRoleInput').value || "enemy"
+        };
+        if (currentEditingKey) {
+            db.ref(`savedMemos/${id}/${currentEditingKey}`).update(updateData);
+        } else {
+            db.ref(`savedMemos/${id}`).push({
+                ...updateData, timeSec: tempTargetSec, timeStr: formatTime(tempTargetSec),
+                duration: 1, width: 240, leftPos: 100
+            });
+        }
+        closePopup();
+    }
+
+    function closePopup() { document.getElementById('floatPopup').style.display = 'none'; }
+
+    function updateFrame() {
+        if (!isPlaying) return;
+        currentTime = (performance.now() - startTime) / 1000;
+        const line = document.getElementById('play-line');
+        const board = document.getElementById('mainBoard');
+        const yPos = currentTime * rowHeight;
+        if (viewMode === 'timeline') {
+            line.style.top = yPos + "px";
+            if (yPos > board.scrollTop + 500 || yPos < board.scrollTop) board.scrollTop = yPos - 100;
+        }
+        document.querySelectorAll('.sticky-note').forEach(note => {
+            const start = parseFloat(note.getAttribute('data-start'));
+            const dur = parseFloat(note.getAttribute('data-duration'));
+            note.classList.toggle('active', currentTime >= start && currentTime < (start + dur));
+        });
+        requestAnimationFrame(updateFrame);
+    }
+
+    function startPlayback() { if(!isPlaying){ isPlaying=true; startTime=performance.now()-(elapsedTimeAtPause*1000); requestAnimationFrame(updateFrame); } }
+    function stopPlayback() { isPlaying=false; elapsedTimeAtPause=currentTime; }
+    function resetPlayback() { stopPlayback(); currentTime=0; elapsedTimeAtPause=0; if(document.getElementById('play-line')) document.getElementById('play-line').style.top="0px"; }
 
     function loadTimelineMemos() {
         const id = document.getElementById('contentSelect').value;
@@ -157,161 +278,142 @@
             const listEl = document.getElementById('timelineList');
             listEl.innerHTML = "";
             const data = snap.val() || {};
-
-            const timelineWrapper = document.createElement('div');
-            timelineWrapper.id = "timelineWrapper";
-            timelineWrapper.style = "position: relative; width: 100%; height: 30000px; background: #0a0a0a; user-select: none;"; 
+            const wrapper = document.createElement('div');
+            wrapper.id = "timelineWrapper";
             
-            const playLine = document.createElement('div');
-            playLine.id = "play-line";
-            playLine.style.top = (currentPlayTime * 50) + "px";
-            timelineWrapper.appendChild(playLine);
+            // 1. データのソート（時間順）
+            const sortedMemos = Object.entries(data)
+                .filter(([k]) => k !== 'counters')
+                .sort((a,b) => a[1].timeSec - b[1].timeSec);
 
-            for (let i = 0; i < 600; i++) {
-                const row = document.createElement('div');
-                row.style = `position: absolute; top: ${i * 50}px; left: 0; right: 0; height: 50px; border-bottom: 1px solid #1a1a1a; pointer-events: none; display: flex; align-items: center;`;
-                row.innerHTML = `<span style="color: #333; font-size: 12px; padding-left: 10px;">${Math.floor(i/60).toString().padStart(2,'0')}:${(i%60).toString().padStart(2,'0')}</span>`;
-                timelineWrapper.appendChild(row);
+            // 2. タイムラインモード：背景目盛りの描画
+            if (viewMode === 'timeline') {
+                wrapper.style.height = (1200 * rowHeight) + "px";
+                for (let i = 0; i < 600; i++) {
+                    const row = document.createElement('div'); 
+                    row.className = 'time-row'; 
+                    row.style.top = (i * rowHeight) + "px";
+                    row.innerText = formatTime(i); 
+                    wrapper.appendChild(row);
+                }
             }
 
-            Object.entries(data).forEach(([key, item]) => {
-                const note = document.createElement('div');
-                note.className = `sticky-note note-${item.role}`;
+            let lastY = 20; // リスト表示用の高さ管理
+            let lastSec = -1;
+
+            // 3. 各付箋の生成
+            sortedMemos.forEach(([key, item]) => {
+                const displayRole = item.role || "enemy"; // ロール未設定時の救済
                 
-                const startTop = (item.timeSec || 0) * 50;
-                const startLeft = (item.leftPos !== undefined) ? item.leftPos : 80;
-                const noteWidth = (item.width !== undefined) ? item.width : 200;
-                const height = (item.duration || 1) * 50 - 4;
+                const note = document.createElement('div');
+                note.className = `sticky-note note-${displayRole}`;
+                note.setAttribute('data-start', item.timeSec);
+                note.setAttribute('data-duration', item.duration || 1);
+                note.setAttribute('data-role', displayRole);
+                
+                if (viewMode === 'timeline') {
+                    // タイムライン表示
+                    note.style.top = (item.timeSec * rowHeight) + "px";
+                    note.style.left = (item.leftPos || 80) + "px";
+                    note.style.width = (item.width || 240) + "px";
+                    note.style.height = ((item.duration || 1) * rowHeight - 2) + "px";
+                } else {
+                    // リスト表示（横配置維持・縦詰め）
+                    if (Math.abs(item.timeSec - lastSec) > 0.1) {
+                        if (lastSec !== -1) lastY += 80; 
+                        lastSec = item.timeSec;
+                    }
+                    note.style.top = lastY + "px";
+                    note.style.left = (item.leftPos || 80) + "px";
+                    note.style.width = (item.width || 240) + "px";
+                    note.style.height = "70px";
+                    wrapper.style.height = (lastY + 150) + "px";
+                }
 
-                note.style = `position: absolute; top: ${startTop}px; left: ${startLeft}px; width: ${noteWidth}px; height: ${height}px; z-index: 100; cursor: grab;`;
-
+                // 付箋内部のHTML
                 note.innerHTML = `
-                    <div class="note-title">${item.title}</div>
-                    <div class="note-detail">${item.detail || ''}</div>
-                    <div class="resizer-bottom"></div>
-                    <div class="resizer-right"></div>
-                    <button style="position:absolute; top:2px; right:5px; background:rgba(0,0,0,0.5); border:none; color:white; cursor:pointer; z-index:20; border-radius:3px;" onclick="deleteNote('${key}')">×</button>
+                    <div style="font-size:9px; opacity:0.6;">${formatTime(item.timeSec)}</div>
+                    <div style="font-weight:bold;">${item.title}</div>
+                    <div style="font-size:10px; opacity:0.8; white-space:pre-wrap;">${item.detail || ''}</div>
+                    <button class="btn-delete" onclick="deleteNote('${key}')">×</button>
+                    ${viewMode === 'timeline' ? '<div class="resizer"></div>' : ''}
                 `;
 
-                note.ondblclick = () => {
-                    document.getElementById('inMin').value = Math.floor(item.timeSec / 60);
-                    document.getElementById('inSec').value = item.timeSec % 60;
-                    document.getElementById('inRole').value = item.role;
-                    document.getElementById('inTitle').value = item.title;
-                    document.getElementById('inDetail').value = item.detail || "";
-                    deleteNote(key, false); 
+                // ダブルクリックで編集
+                note.ondblclick = (e) => { 
+                    e.stopPropagation(); 
+                    showPopup(key, e.pageX - 310, e.pageY - 20, "編集"); 
                 };
 
-                note.onmousedown = function(e) {
-                    const isResizingBottom = e.target.classList.contains('resizer-bottom');
-                    const isResizingRight = e.target.classList.contains('resizer-right');
-                    if (e.target.tagName === 'BUTTON') return;
+                // 4. ドラッグ＆リサイズ処理（タイムラインモードのみ）
+                if (viewMode === 'timeline') {
+                    note.onmousedown = (e) => {
+                        if (e.target.className === 'btn-delete') return;
+                        e.preventDefault();
+                        const isResizing = e.target.classList.contains('resizer');
+                        const startY = e.pageY, startX = e.pageX;
+                        const startTop = parseFloat(note.style.top), startLeft = parseFloat(note.style.left);
+                        const startH = note.offsetHeight, startW = note.offsetWidth;
+                        
+                        const snapUnit = rowHeight / 4; // 0.25秒単位
 
-                    e.preventDefault();
-                    e.stopPropagation(); // 親要素へのイベント伝播を阻止
-                    
-                    const style = window.getComputedStyle(note);
-                    const startWidth = parseFloat(style.width);
-                    const startHeight = parseFloat(style.height);
-                    const startX = e.pageX;
-                    const startY = e.pageY;
-                    const startTopPos = note.offsetTop;
-                    const startLeftPos = note.offsetLeft;
+                        const move = (ev) => {
+                            if (isResizing) {
+                                // --- 高さのスナップ ---
+                                const rawHeight = startH + (ev.pageY - startY);
+                                const snappedHeight = Math.max(snapUnit, Math.round(rawHeight / snapUnit) * snapUnit);
+                                note.style.height = (snappedHeight - 2) + "px";
+                                // 横幅は自由
+                                note.style.width = Math.max(50, startW + (ev.pageX - startX)) + "px";
+                            } else {
+                                // --- 位置のスナップ ---
+                                const rawTop = startTop + (ev.pageY - startY);
+                                note.style.top = Math.max(0, Math.round(rawTop / snapUnit) * snapUnit) + "px";
+                                note.style.left = Math.max(80, startLeft + (ev.pageX - startX)) + "px";
+                            }
+                        };
 
-                    function onMouseMove(event) {
-                        if (isResizingBottom) {
-                            // 縦のリサイズ
-                            const deltaY = event.pageY - startY;
-                            note.style.height = Math.max(46, startHeight + deltaY) + 'px';
-                        } else if (isResizingRight) {
-                            // 横のリサイズ（ここをシンプルにしました）
-                            const deltaX = event.pageX - startX;
-                            const newWidth = startWidth + deltaX;
-                            // 最小幅は50px、最大は1200px程度に制限して安全策
-                            note.style.width = Math.min(1200, Math.max(50, newWidth)) + 'px';
-                        } else {
-                            // 通常の移動
-                            const deltaX = event.pageX - startX;
-                            const deltaY = event.pageY - startY;
-                            note.style.top = Math.max(0, Math.round((startTopPos + deltaY) / 50) * 50) + 'px';
-                            note.style.left = Math.max(80, Math.round((startLeftPos + deltaX) / 20) * 20) + 'px'; 
-                        }
-                    }
+                        const up = () => {
+                            document.removeEventListener('mousemove', move);
+                            document.removeEventListener('mouseup', up);
+                            
+                            const finalTop = parseFloat(note.style.top);
+                            const finalHeight = parseFloat(note.style.height) + 2; 
+                            
+                            const finalTimeSec = finalTop / rowHeight;
+                            const finalDuration = finalHeight / rowHeight;
 
-                    function onMouseUp() {
-                        document.removeEventListener('mousemove', onMouseMove);
-                        document.removeEventListener('mouseup', onMouseUp);
-
-                        // 保存時に数値を綺麗に整える（スナップ）
-                        const finalSec = Math.round(parseInt(note.style.top) / 50);
-                        const finalSpan = Math.round((parseFloat(note.style.height) + 4) / 50);
-                        // 横幅は50px単位でスナップ
-                        const finalWidth = Math.round(parseFloat(note.style.width) / 50) * 50;
-                        const finalLeft = Math.round(parseInt(note.style.left) / 20) * 20;
-
-                        // 見た目もスナップ後の数値に合わせる
-                        note.style.width = finalWidth + 'px';
-                        note.style.height = (finalSpan * 50 - 4) + 'px';
-
-                        // 保存用の timeStr を作成
-                        const finalTimeStr = formatTime(finalSec);
-
-                        db.ref(`savedMemos/${id}/${key}`).update({ 
-                            timeSec: finalSec,
-                            timeStr: finalTimeStr, // これを追加！
-                            duration: finalSpan,
-                            width: finalWidth,
-                            leftPos: finalLeft
-                        });
-                    }
-
-                    document.addEventListener('mousemove', onMouseMove);
-                    document.addEventListener('mouseup', onMouseUp);
-                };
-
-
-                timelineWrapper.appendChild(note);
-            });
-
-            timelineWrapper.onclick = (e) => {
-                if(e.target.id === "timelineWrapper") {
-                    const rect = timelineWrapper.getBoundingClientRect();
-                    const clickY = e.pageY - rect.top;
-                    currentPlayTime = Math.floor(clickY / 50);
-                    document.getElementById('play-line').style.top = (currentPlayTime * 50) + "px";
+                            db.ref(`savedMemos/${id}/${key}`).update({
+                                timeSec: finalTimeSec,
+                                timeStr: formatTime(finalTimeSec),
+                                duration: finalDuration,
+                                leftPos: parseFloat(note.style.left),
+                                width: parseFloat(note.style.width)
+                            });
+                        };
+                        document.addEventListener('mousemove', move);
+                        document.addEventListener('mouseup', up);
+                    };
                 }
-            };
-            listEl.appendChild(timelineWrapper);
+                wrapper.appendChild(note);
+            });
+            listEl.appendChild(wrapper);
+            
+            // 最後にフィルタ状態を適用
+            applyFilter(); 
         });
     }
 
-    // deleteNote関数を修正
-    function deleteNote(key, confirmRequired = true) {
-        const id = document.getElementById('contentSelect').value;
-        if(!confirmRequired || confirm("削除しますか？")) {
-            db.ref(`savedMemos/${id}/${key}`).remove();
-        }
-    }
+    function deleteNote(key) { event.stopPropagation(); if(confirm("削除しますか？")) db.ref(`savedMemos/${document.getElementById('contentSelect').value}/${key}`).remove(); }
 
     db.ref('contentsList').on('value', snap => {
         const select = document.getElementById('contentSelect');
-        const current = select.value;
-        select.innerHTML = "";
+        const current = select.value; select.innerHTML = "";
         Object.entries(snap.val() || {}).forEach(([id, name]) => {
-            const opt = document.createElement('option'); opt.value = id; opt.innerText = name;
-            select.appendChild(opt);
+            const opt = document.createElement('option'); opt.value = id; opt.innerText = name; select.appendChild(opt);
         });
-        if(current) select.value = current;
-        loadTimelineMemos();
+        if(current) select.value = current; loadTimelineMemos();
     });
-
-    // --- 秒数を "00:00" 形式に変換する関数をどこかに定義しておく ---
-    function formatTime(seconds) {
-        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
-    }
-
 </script>
 </body>
 </html>
